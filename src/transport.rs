@@ -81,6 +81,9 @@ pub struct IrohGossip {
     id: String,
     rx: tokio_stream::wrappers::ReceiverStream<anyhow::Result<Bytes>>,
     tx: tokio::sync::mpsc::Sender<Bytes>,
+    _endpoint: Endpoint,
+    _router: Router,
+    _gossip: Gossip,
 }
 
 impl IrohGossip {
@@ -99,12 +102,14 @@ impl IrohGossip {
             Endpoint::builder().secret_key(secret_key)
         } else {
             Endpoint::builder()
-        };
+        }.discovery_n0();
+
         let endpoint = builder.bind().await?;
         let id = endpoint.node_id().to_string();
+        eprintln!("node_id={}", id);
 
         let gossip = Gossip::builder().spawn(endpoint.clone());
-        let _router = Router::builder(endpoint.clone())
+        let router = Router::builder(endpoint.clone())
             .accept(ALPN, gossip.clone())
             .spawn();
 
@@ -162,6 +167,9 @@ impl IrohGossip {
             id,
             rx: tokio_stream::wrappers::ReceiverStream::new(mpsc_rx2),
             tx,
+            _endpoint: endpoint,
+            _router: router,
+            _gossip: gossip,
         })
     }
 }
