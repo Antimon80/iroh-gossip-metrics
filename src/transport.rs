@@ -1,6 +1,4 @@
-use crate::metrics::DataMsg;
-use crate::metrics::LogEvent;
-use crate::metrics::{Stats, Summary};
+use crate::metrics::{DataMsg, LogEvent, Stats, Summary};
 use crate::util::{now_ms, pad_payload, topic_from_name};
 use anyhow::Result;
 use async_trait::async_trait;
@@ -16,83 +14,69 @@ use postcard;
 use rand::RngCore;
 use std::str::FromStr;
 use tokio::{
-    net::UdpSocket,
     select,
     time::{Duration, sleep},
 };
 use tokio_stream::StreamExt;
 use tracing::warn;
 
+/// Defines the discovery mode for gossip peers.
+#[derive(Debug, Clone, Copy)]
+pub enum Discovery {
+    /// Direct discovery (peers connect directly to each other)
+    Direct,
+    /// Relay-assisted discovery using one or more bootstrap peers
+    Relay,
+}
+
+/// Trait for irop-gossip transport
 #[async_trait]
 pub trait Transport: Send + Sync {
+    /// Returns a human-readable identifier for this transport instance.
     fn id(&self) -> String;
 
+    /// Broadcasts a byte buffer to all peers in the topic.
     async fn broadcast(&self, bytes: Bytes) -> Result<()>;
 
+    /// Waits for and returns the next recieved message (or an error).
     async fn next(&mut self) -> Option<Result<Bytes>>;
-
-    fn note_lagged(&mut self) {}
 }
 
-pub struct UdpBaseline {
-    me: String,
-    socket: UdpSocket,
-    peers: Vec<String>,
-}
-
-impl UdpBaseline {
-    pub async fn bind(bind: &str, peers: Vec<String>) -> Result<Self> {
-        let socket = UdpSocket::bind(bind).await?;
-        for peer in &peers {
-            let _ = peer.parse::<std::net::SocketAddr>()?;
-        }
-        Ok(Self {
-            me: format!("udp:{bind}"),
-            socket,
-            peers,
-        })
-    }
-}
-
-#[async_trait]
-impl Transport for UdpBaseline {
-    fn id(&self) -> String {
-        self.me.clone()
-    }
-
-    async fn broadcast(&self, bytes: Bytes) -> Result<()> {
-        for peer in &self.peers {
-            let addr = peer.parse::<std::net::SocketAddr>()?;
-            let _ = self.socket.send_to(&bytes, addr).await?;
-        }
-        Ok(())
-    }
-
-    async fn next(&mut self) -> Option<Result<Bytes>> {
-        let mut buffer = vec![0u8; 2048];
-        match self.socket.recv_from(&mut buffer).await {
-            Ok((n, _from)) => Some(Ok(Bytes::copy_from_slice(&buffer[..n]))),
-            Err(e) => Some(Err(e.into())),
-        }
-    }
-}
-
+/// Implementation of the gossip-based transport using the 'iroh-gossip' protocol.
 pub struct IrohGossip {
+    /// Local node ID (as string for logging)
     id: String,
+    /// Stream for receiving messages
     rx: tokio_stream::wrappers::ReceiverStream<anyhow::Result<Bytes>>,
+    /// Channel for outgoing messages
     tx: tokio::sync::mpsc::Sender<Bytes>,
+    /// Underlying iroh endpoint
     _endpoint: Endpoint,
+    /// Router integrating gossip into the iroh protocol stack
     _router: Router,
+    /// The gossip protocol instance itself
     _gossip: Gossip,
+    /// Discovery mode (direct or relay)
+    _discovery: Discovery,
 }
 
 impl IrohGossip {
+    /// Establishes an iroh-gossip connection for the given topic and discovery mode.
+    ///
+    /// # Arguments
+    /// * `topic_hex` – Optional topic ID in hexadecimal format.
+    /// * `topic_name` – Optional topic name (used if `topic_hex` is not given).
+    /// * `secret_hex` – Optional secret key for reproducible node IDs.
+    /// * `bootstrap` – List of bootstrap node IDs (only used for relay mode).
+    /// * `discovery` – Discovery type (`Direct` or `Relay`).
     pub async fn connect(
         topic_hex: Option<String>,
         topic_name: Option<String>,
         secret_hex: Option<String>,
         bootstrap: Vec<String>,
+        discovery: Discovery,
     ) -> Result<Self> {
+        // Optional secret key ensures a deterministic node ID.
         let builder = if let Some(hex) = secret_hex {
             let bytes = hex::decode(hex)?;
             let arr: [u8; 32] = bytes
@@ -102,17 +86,21 @@ impl IrohGossip {
             Endpoint::builder().secret_key(secret_key)
         } else {
             Endpoint::builder()
-        }.discovery_n0();
+        }
+        .discovery_n0(); // Disable automatic peer discovery (explicit joins only).
 
+        // Create endpoint and print node_id for scripts/orchestration.
         let endpoint = builder.bind().await?;
         let id = endpoint.node_id().to_string();
         eprintln!("node_id={}", id);
 
+        // Initialize gossip and router.
         let gossip = Gossip::builder().spawn(endpoint.clone());
         let router = Router::builder(endpoint.clone())
             .accept(ALPN, gossip.clone())
             .spawn();
 
+        // Determine topic ID (hex, name-derived, or random).
         let topic = if let Some(h) = topic_hex {
             TopicId::from_str(&h)?
         } else if let Some(n) = topic_name {
@@ -123,6 +111,7 @@ impl IrohGossip {
             TopicId::from_bytes(rnd)
         };
 
+        // Optional bootstrap peers (used only in relay discovery).
         let mut node_ids = vec![];
         for b in bootstrap {
             if let Ok(node) = b.parse() {
@@ -130,10 +119,14 @@ impl IrohGossip {
             }
         }
 
+        // Join the topic and get a handle for message broadcast + receive.
         let mut topic_handle: GossipTopic = gossip.subscribe_and_join(topic, node_ids).await?;
         topic_handle.joined().await.ok();
         let (sender, mut receiver) = topic_handle.split();
 
+        //  Create two channels:
+        //  * tx/mpsc_rx for outgoing messages,
+        //  * mpsc_tx2/mpsc_rx2 for forwarding received messages to the app.
         let (tx, mut mpsc_rx) = tokio::sync::mpsc::channel::<Bytes>(128);
         let (mpsc_tx2, mpsc_rx2) = tokio::sync::mpsc::channel::<anyhow::Result<Bytes>>(1024);
 
@@ -145,6 +138,7 @@ impl IrohGossip {
             }
         });
 
+        // Task handling outgoing gossip broadcasts.
         tokio::spawn(async move {
             loop {
                 match receiver.next().await {
@@ -170,6 +164,7 @@ impl IrohGossip {
             _endpoint: endpoint,
             _router: router,
             _gossip: gossip,
+            _discovery: discovery,
         })
     }
 }
@@ -186,12 +181,19 @@ impl Transport for IrohGossip {
     async fn next(&mut self) -> Option<Result<Bytes>> {
         self.rx.next().await.map(|r| r.map_err(|e| e.into()))
     }
-    fn note_lagged(&mut self) {}
 }
 
+/// Runs the sender role: generates `DataMsg`s, sends them at a given rate,
+/// and logs each send event.
+///
+/// # Parameters
+/// * `transport` – Active gossip transport.
+/// * `log` – JSONL writer for structured logs.
+/// * `test_total` – Total number of messages to send.
+/// * `rate_per_sec` – Send rate in messages per second.
+/// * `payload_size` – Size of each payload in bytes.
 pub async fn run_sender<T: Transport>(
     transport: T,
-    transport_name: &str,
     log: &mut crate::metrics::JsonWriter,
     test_total: u64,
     rate_per_sec: u64,
@@ -199,9 +201,12 @@ pub async fn run_sender<T: Transport>(
 ) -> anyhow::Result<()> {
     let mut test_id = [0u8; 16];
     rand::rng().fill_bytes(&mut test_id);
+
+    // Determine inter-send interval (in ms) based on desired rate.
     let interval = std::cmp::max(1, (1000 / rate_per_sec.max(1)) as i64) as u64;
 
     for seq in 0..test_total {
+        // Build message.
         let msg = DataMsg {
             test_id,
             seq,
@@ -209,28 +214,39 @@ pub async fn run_sender<T: Transport>(
             total: test_total,
             pad: vec![],
         };
+
+        // Serialize and pad message payload
         let mut bytes = postcard::to_allocvec(&msg)?;
         bytes = pad_payload(bytes, payload_size);
+
+        // Broadcast to gossip peers.
         transport.broadcast(Bytes::from(bytes)).await?;
 
+        // Log the event.
         log.write(&LogEvent {
             ts_ms: now_ms(),
             role: "sender",
-            transport: transport_name,
             peer_id: &transport.id(),
             event: "send",
             seq: Some(seq),
             extra: serde_json::json!({"total": test_total}),
         })?;
 
+        // Maintain the configured send rate.
         sleep(Duration::from_millis(interval)).await;
     }
     Ok(())
 }
 
+/// Runs the receiver role: continuously listens for incoming messages,
+/// records statistics, and returns a summarized `Summary` after idle timeout.
+///
+/// # Parameters
+/// * `transport` – Active gossip transport.
+/// * `log` – JSONL writer for structured logs.
+/// * `report_after_idle_ms` – Duration of inactivity after which to summarize.
 pub async fn run_receiver<T: Transport>(
     mut transport: T,
-    transport_name: &str,
     log: &mut crate::metrics::JsonWriter,
     report_after_idle_ms: u64,
 ) -> anyhow::Result<Summary> {
@@ -240,10 +256,12 @@ pub async fn run_receiver<T: Transport>(
 
     loop {
         select! {
+            // Check periodically for idle timeout.
             biased;
             _ = sleep(Duration::from_millis(50)) => {},
             msg = transport.next() => {
                 match msg {
+                    // Message received successfully.
                     Some(Ok(b)) => {
                         last = now_ms();
                         if let Ok(m) = postcard::from_bytes::<DataMsg>(&b) {
@@ -253,7 +271,6 @@ pub async fn run_receiver<T: Transport>(
                                 log.write(&LogEvent {
                                     ts_ms: now_ms(),
                                     role: "receiver",
-                                    transport: transport_name,
                                     peer_id: &transport.id(),
                                     event: "recv",
                                     seq: Some(m.seq),
@@ -262,13 +279,14 @@ pub async fn run_receiver<T: Transport>(
                             }
                         }
                     }
+
+                    // Lagged event reported by gossip.
                     Some(Err(e)) => {
                         if e.to_string().contains("lagged") {
                             stats.lagged_events += 1;
                             log.write(&LogEvent {
                                 ts_ms: now_ms(),
                                 role: "receiver",
-                                transport: transport_name,
                                 peer_id: &transport.id(),
                                 event: "lagged",
                                 seq: None,
@@ -276,13 +294,19 @@ pub async fn run_receiver<T: Transport>(
                             })?;
                         }
                     }
+
+                    // No more messages -> channel closed.
                     None => break,
                 }
             }
         }
+
+        // If idle for a given duration and message were received, stop.
         if now_ms().saturating_sub(last) > report_after_idle_ms && stats.total_expected > 0 {
             break;
         }
     }
+
+    // Return final metrics summary.
     Ok(stats.summarize())
 }
