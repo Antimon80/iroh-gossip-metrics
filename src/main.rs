@@ -10,7 +10,7 @@ use crate::transport::{Discovery, IrohGossip, Transport};
 
 /// Command-line interface for iroh-gossip reliability experiments
 #[derive(Parser, Debug)]
-#[command(version, about = "Reliability lab for iroh-gossip")]
+#[command(version, about = "Reliability lab for UDP vs iroh-gossip")]
 struct Args {
     /// Role: sender or receiver
     #[arg(long, value_parser = ["sender","receiver"])]
@@ -43,9 +43,9 @@ struct Args {
     /// Topic name (used if no hex is given)
     #[arg(long)]
     topic_name: Option<String>,
+    #[arg(long)]
 
     /// Optional secret key (32-byte hex)
-    #[arg(long)]
     secret_hex: Option<String>,
 
     /// Comma-separated list of bootstrap node IDs (for relay discovery)
