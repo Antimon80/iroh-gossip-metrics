@@ -3,7 +3,8 @@ use crate::util::{now_ms, pad_payload, topic_from_name};
 use anyhow::Result;
 use async_trait::async_trait;
 use bytes::Bytes;
-use iroh::{Endpoint, SecretKey, protocol::Router};
+use iroh::discovery::mdns::MdnsDiscovery;
+use iroh::{Endpoint, RelayMode, SecretKey, protocol::Router};
 use iroh_gossip::{
     ALPN,
     api::{Event, GossipTopic},
@@ -77,22 +78,29 @@ impl IrohGossip {
         discovery: Discovery,
     ) -> Result<Self> {
         // Optional secret key ensures a deterministic node ID.
-        let builder = if let Some(hex) = secret_hex {
+        let mut builder = Endpoint::builder();
+
+        if let Some(ref hex) = secret_hex {
             let bytes = hex::decode(hex)?;
             let arr: [u8; 32] = bytes
                 .try_into()
                 .map_err(|_| anyhow::anyhow!("secret key must be 32 bytes"))?;
             let secret_key = SecretKey::from_bytes(&arr);
-            Endpoint::builder().secret_key(secret_key)
-        } else {
-            Endpoint::builder()
+            builder = builder.secret_key(secret_key);
         }
-        .discovery_n0(); // Disable automatic peer discovery (explicit joins only).
+
+        // Configure Discovery depending on selected mode
+        builder = match discovery {
+            Discovery::Direct => {
+                let mdns = MdnsDiscovery::builder();
+                builder.relay_mode(RelayMode::Disabled).discovery(mdns)
+            }
+            Discovery::Relay => builder.relay_mode(RelayMode::Default),
+        };
 
         // Create endpoint and print node_id for scripts/orchestration.
         let endpoint = builder.bind().await?;
         let id = endpoint.node_id().to_string();
-        eprintln!("node_id={}", id);
 
         // Initialize gossip and router.
         let gossip = Gossip::builder().spawn(endpoint.clone());
@@ -112,12 +120,14 @@ impl IrohGossip {
         };
 
         // Optional bootstrap peers (used only in relay discovery).
-        let mut node_ids = vec![];
-        for b in bootstrap {
-            if let Ok(node) = b.parse() {
-                node_ids.push(node);
-            }
-        }
+        let node_ids = if matches!(discovery, Discovery::Relay) {
+            bootstrap
+                .into_iter()
+                .filter_map(|b| b.parse().ok())
+                .collect()
+        } else {
+            Vec::new()
+        };
 
         // Join the topic and get a handle for message broadcast + receive.
         let mut topic_handle: GossipTopic = gossip.subscribe_and_join(topic, node_ids).await?;
