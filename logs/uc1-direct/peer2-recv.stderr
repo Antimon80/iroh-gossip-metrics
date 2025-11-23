@@ -1,6 +1,0 @@
-node_id=2ae3dc5a1c47f595ce85bc9cd3129f8159878e05378c5207966057d289cedfcb
-bootstraps_parsed=1
-
-thread 'tokio-runtime-worker' panicked at /home/andrea/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/iroh-gossip-0.92.0/src/net.rs:439:51:
-connection task panicked: JoinError::Cancelled(Id(93))
-note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace

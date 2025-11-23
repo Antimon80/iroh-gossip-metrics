@@ -6,13 +6,16 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 source "$ROOT/scripts/netns/common_netns.sh"
 
-SCENARIO="${1:-scripts/scenarios/netem-none.sh}"
-PEERS="${2:-20}"
-NUM="${3:-2000}"
-RATE="${4:-50}"
-SIZE="${5:-256}"
+SCENARIO="${SCENARIO:-scripts/scenarios/netem-none.sh}"
+PEERS="${1:-20}"
+NUM="${2:-2000}"
+RATE="${3:-50}"
+SIZE="${4:-256}"
+
 TOPIC="${TOPIC:-lab}"
-LOGDIR="${LOGDIR:-logs/uc1-direct}"
+BASELOG="${LOGDIR:-logs/uc1-direct}"
+RUN_ID=$(date +"run-%Y%m%d-%H%M%S")
+LOGDIR="$BASELOG/$RUN_ID"
 BIN="$ROOT/target/release/iroh-gossip-metrics"
 
 mkdir -p "$LOGDIR"

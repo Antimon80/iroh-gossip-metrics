@@ -1,27 +1,29 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# UC2: 20 machines in same LAN, Relay discovery
+# UC3: Relay-assisted discovery, degraded network (delay/loss)
+# same as UC2 but with netem impairments injected on the bridge.
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 source "$ROOT/scripts/netns/common_netns.sh"
 export NETNS_INTERNET=1
 
-SCENARIO="${SCENARIO:-scripts/scenarios/netem-none.sh}"
+# Default: degraded scenario
+SCENARIO="${SCENARIO:-scripts/scenarios/netem-loss30-delay50.sh}"
 PEERS="${1:-20}"
 NUM="${2:-2000}"
 RATE="${3:-50}"
 SIZE="${4:-256}"
 
 TOPIC="${TOPIC:-lab}"
-BASELOG="${LOGDIR:-logs/uc2-relay}"
+BASELOG="${LOGDIR:-logs/uc3-relay-degraded}"
 RUN_ID=$(date +"run-%Y%m%d-%H%M%S")
 LOGDIR="$BASELOG/$RUN_ID"
 BIN="$ROOT/target/release/iroh-gossip-metrics"
 
 mkdir -p "$LOGDIR"
 
-echo "== UC2 Relay LAN with $PEERS peers =="
+echo "== UC3 Relay Degraded with $PEERS peers =="
 echo "SCENARIO=$SCENARIO NUM=$NUM RATE=$RATE SIZE=$SIZE TOPIC=$TOPIC"
 echo
 
@@ -69,6 +71,7 @@ for _ in {1..80}; do
   fi
   sleep 0.1
 done
+
 if [[ -z "$NODE_ID" ]]; then
   echo "ERROR: Could not detect bootstrap node_id" >&2
   kill "$BOOT_PID" || true
@@ -100,11 +103,11 @@ for i in $(seq 2 "$PEERS"); do
     --bootstrap "$NODE_ID" \
     1> "$RSUM" \
     2> "$RERR" &
-  
+
   RECV_PIDS+=("$!")
 done
 
-sleep 3   # relay discovery kann etwas länger brauchen
+sleep 3   # relay discovery can take a moment
 
 #############################################
 # 4) START SENDER IN PEER 1
@@ -131,17 +134,16 @@ for pid in "${RECV_PIDS[@]}"; do
   wait "$pid" || true
 done
 
-sleep 1   # short settle time
+sleep 1
 
 #############################################
 # 6) CLEANUP
 #############################################
-
 echo "== Clear scenario =="
 bash "$ROOT/scripts/scenarios/netem-none.sh" "$BR"
 
 echo "== [netns] cleanup =="
 cleanup_netns
 
-echo "== UC2 done. Logs in $LOGDIR =="
+echo "== UC3 done. Logs in $LOGDIR =="
 ls -1 "$LOGDIR" | sed 's/^/  - /'

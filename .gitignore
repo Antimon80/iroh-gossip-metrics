@@ -1,1 +1,79 @@
-/target
+###############
+# Rust / Cargo
+###############
+
+# Build artifacts
+/target/
+**/target/
+
+# Incremental compilation
+/.cargo/
+**/.cargo/
+
+# Rust backups
+**/*.rs.bk
+
+# Rust toolchains (optional)
+rust-toolchain.toml
+
+#####################
+# Python & venv
+#####################
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Python cache
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Jupyter / analysis artifacts
+*.ipynb_checkpoints
+.ipynb_checkpoints/
+
+#####################
+# Project logs
+#####################
+
+logs/**
+!logs/**/
+!logs/**/*-summary.json
+
+#####################
+# Editor / IDE files
+#####################
+
+# VSCode
+.vscode/
+*.code-workspace
+
+# JetBrains
+.idea/
+*.iml
+
+#####################
+# OS-specific junk
+#####################
+
+# macOS
+.DS_Store
+
+# Linux
+*.swp
+*.swo
+
+# Windows
+Thumbs.db
+
+#####################
+# Misc
+#####################
+
+# Backup files
+*~
