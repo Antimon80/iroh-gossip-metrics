@@ -3,44 +3,80 @@ use bytes::Bytes;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, fs::File, io::Write, path::Path};
 
+/// Application-level payload sent during benchmarks.
+///
+/// The message carries:
+/// - a test run identifier (`test_id`) so concurrent runs can be separated,
+/// - a monotonically increasing sequence number (`seq`),
+/// - the sender timestamp (`sent_ms`) for end-to-end latency,
+/// - the expected total number of messages in this test (`total`),
+/// - optional padding (`pad`) to reach a fixed payload size.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DataMsg {
+    /// Random per-test identifier (shared by all messages of one run).
     pub test_id: [u8; 16],
+    /// Sequence number within the test, starting at 0.
     pub seq: u64,
+    /// Sender-side timestamp in milliseconds since epoch.
     pub sent_ms: u64,
+    /// Total messages expected in this test run.
     pub total: u64,
+    /// Padding bytes (used to normalize payload size).
     pub pad: Vec<u8>,
 }
 
+// Transport-level events as seen by the benchmark harness.
+///
+/// These events are produced by a backend transport (e.g., gossip)
+/// and consumed by the receiver loop to update metrics.
 #[derive(Debug, Clone)]
 pub enum TransportEvent {
+    /// A data message was received.
     Msg(Bytes),
+    /// The transport reported that it lagged behind (buffer overrun / dropped events).
     Lagged,
+    /// A neighbor/peer disconnected.
     Disconnect,
+    /// A neighbor/peer reconnected or became reachable again.
     Reconnect,
 }
 
+/// One structured log line written as JSONL.
+///
+/// Lifetimes are used so we can reference static role/event strings
+/// without allocating new `String`s for every log entry.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LogEvent<'a> {
+    /// Timestamp of the log event (ms since epoch).
     pub ts_ms: u64,
+    /// Role of the logging process ("sender" or "receiver").
     pub role: &'a str,
+    /// Identifier of the local peer/transport instance.
     pub peer_id: &'a str,
+    /// Event type, e.g. "send", "recv", "neighbor_up".
     pub event: &'a str,
+    /// Optional sequence number (present for send/recv events).
     pub seq: Option<u64>,
+    /// Additional structured metadata.
     pub extra: serde_json::Value,
 }
 
+/// Simple JSONL writer for benchmark logs.
+///
+/// Each call to `write` appends a single JSON object as one line.
 pub struct JsonWriter {
     file: File,
 }
 
 impl JsonWriter {
+    /// Create a new JSONL writer that truncates/creates the given file path.
     pub fn new<P: AsRef<Path>>(path: P) -> anyhow::Result<Self> {
         Ok(Self {
             file: File::create(path)?,
         })
     }
 
+    /// Append a single event as one JSON line.
     pub fn write(&mut self, ev: &LogEvent) -> anyhow::Result<()> {
         let line = serde_json::to_string(ev)?;
         writeln!(self.file, "{}", line)?;
@@ -48,6 +84,10 @@ impl JsonWriter {
     }
 }
 
+/// Accumulates per-run receiver statistics.
+///
+/// This struct is intentionally stateful and updated incrementally
+/// as messages and transport events arrive.
 #[derive(Default, Clone)]
 pub struct Stats {
     // delivery/duplicates/order
@@ -81,6 +121,7 @@ pub struct Stats {
     reconnect_time_ms: Vec<u64>,
 }
 
+/// Final summarized metrics for one receiver run.
 #[derive(Debug, Clone, Serialize)]
 pub struct Summary {
     // delivery
@@ -116,30 +157,38 @@ pub struct Summary {
 }
 
 impl Stats {
+    /// Record a successfully decoded DataMsg and update all relevant metrics.
     pub fn record(&mut self, message: &DataMsg) {
+        // Track expected total for this test (monotonic max in case of reordering).
         self.total_expected = self.total_expected.max(message.total);
+        // Count every received message, including duplicates.
         self.recv_total += 1;
 
+        // Duplicate detection by sequence number.
         if !self.seen.insert(message.seq) {
             self.duplicates += 1;
         }
 
+        // Out-of-order detection relative to maximum observed sequence.
         if (message.seq as i64) < self.max_seq_seen {
             self.out_of_order += 1;
         } else {
             self.max_seq_seen = message.seq as i64;
         }
 
+        // End-to-end latency based on sender timestamp.
         let now = now_ms();
         let lat = now.saturating_sub(message.sent_ms);
         self.lats.push(lat);
 
+        // Track first send time and last receive time for convergence.
         self.first_sent_ms = Some(
             self.first_sent_ms
                 .map_or(message.sent_ms, |m| m.min(message.sent_ms)),
         );
         self.last_recv_ts_ms = Some(now);
 
+        // If we have seen all expected messages, compute convergence time once.
         if self.convergence_time_ms.is_none()
             && self.total_expected > 0
             && self.seen.len() as u64 >= self.total_expected
@@ -150,6 +199,8 @@ impl Stats {
             }
         }
 
+        // If a reconnect happened and this is the first post-reconnect message,
+        // measure time since disconnect.
         if self.waiting_first_after_reconnect {
             if let Some(disc) = self.last_disconnect_ts {
                 let rt = now.saturating_sub(disc);
@@ -159,10 +210,15 @@ impl Stats {
         }
     }
 
+    /// Note a lagged transport event (buffer overrun / skipped events).
     pub fn note_lagged(&mut self) {
         self.lagged_events += 1;
     }
 
+    /// Record a new snapshot of peer connectivity and reachability.
+    ///
+    /// The ratio is reachable/connected.
+    /// This method maintains a time-weighted average over the run.
     pub fn record_peer_view(&mut self, ts_ms: u64, connected: u64, reachable: u64) {
         let ratio = if connected == 0 {
             1.0
@@ -170,6 +226,7 @@ impl Stats {
             (reachable as f64) / (connected as f64)
         };
 
+        // Accumulate time-weighted ratio since last update.
         if let Some(prev_ts) = self.pr_last_ts {
             let dur = ts_ms.saturating_sub(prev_ts) as f64;
             self.pr_acc_ms += dur * self.pr_last_ratio;
@@ -179,11 +236,18 @@ impl Stats {
         self.pr_last_ratio = ratio;
     }
 
+    /// Note that a disconnect happened at the given timestamp.
+    ///
+    /// This arms reconnect-time measurement to start from this time.
     pub fn note_disconnect(&mut self, ts_ms: u64) {
         self.last_disconnect_ts = Some(ts_ms);
         self.waiting_first_after_reconnect = false;
     }
 
+    /// Note that a reconnect happened at the given timestamp.
+    ///
+    /// We only compute reconnect time once the first message arrives after reconnect,
+    /// because that's when the system is effectively usable again.
     pub fn note_reconnect(&mut self, ts_ms: u64) {
         if self.last_disconnect_ts.is_some() {
             self.waiting_first_after_reconnect = true;
@@ -192,6 +256,7 @@ impl Stats {
         }
     }
 
+    /// Return the quantile value from a sorted slice using nearest-rank rounding.
     fn quantil(sorted: &[u64], quantil: f64) -> Option<u64> {
         if sorted.is_empty() {
             return None;
@@ -201,6 +266,10 @@ impl Stats {
         sorted.get(idx).copied()
     }
 
+    /// Produce a Summary from the accumulated stats.
+    ///
+    /// This sorts latency and reconnect-time samples, finalizes reachability
+    /// averaging, and computes all derived rates.
     pub fn summarize(&mut self) -> Summary {
         // latencies
         self.lats.sort_unstable();
@@ -221,6 +290,7 @@ impl Stats {
             self.duplicates as f64 / self.recv_total as f64
         };
 
+        // Finalize peer reachability by accounting for time since last update.
         if let Some(prev_ts) = self.pr_last_ts {
             let now = now_ms();
             let dur = now.saturating_sub(prev_ts) as f64;

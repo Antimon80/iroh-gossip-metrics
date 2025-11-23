@@ -21,9 +21,10 @@ use tracing::warn;
 /// Defines the discovery mode for gossip peers.
 #[derive(Debug, Clone, Copy)]
 pub enum Discovery {
-    /// Direct discovery (peers connect directly to each other)
+    /// Direct discovery (peers connect directly to each other, typically via local LAN discovery like mDNS).
     Direct,
     /// Relay-assisted discovery using one or more bootstrap peers
+    /// This mode relies on iroh's n0 discovery and can traverse NATs via relays.
     Relay,
 }
 
@@ -286,10 +287,12 @@ pub async fn run_receiver<T: Transport>(
                         last = now_ms();
 
                         if let Ok(m) = postcard::from_bytes::<DataMsg>(&b) {
+                            // First message defines the active test
                             if current_test.is_none() {
                                 current_test = Some(m.test_id);
                             }
 
+                            // Only record messages for the active test_id
                             if Some(m.test_id) == current_test {
                                 stats.record(&m);
 
@@ -305,6 +308,7 @@ pub async fn run_receiver<T: Transport>(
                         }
                     }
 
+                    // Receiver lag indicates internal buffering overflow
                     Some(Ok(TransportEvent::Lagged)) => {
                         stats.note_lagged();
 
@@ -321,10 +325,12 @@ pub async fn run_receiver<T: Transport>(
                     Some(Ok(TransportEvent::Disconnect)) => {
                         let ts = now_ms();
 
+                        // Maintain a simple neighbor count for peer-view metrics
                         if connected_peers > 0 {
                             connected_peers -= 1;
                         }
 
+                        // Record instantaneous peer view (connected == reachable here)
                         stats.record_peer_view(ts, connected_peers, connected_peers);
 
                         stats.note_disconnect(ts);
@@ -347,6 +353,7 @@ pub async fn run_receiver<T: Transport>(
 
                         connected_peers += 1;
 
+                        // Record instantaneous peer view (connected == reachable here)
                         stats.record_peer_view(ts, connected_peers, connected_peers);
 
                         stats.note_reconnect(ts);
@@ -365,6 +372,7 @@ pub async fn run_receiver<T: Transport>(
                     }
 
                     Some(Err(e)) => {
+                        // Transport errors are logged but do not stop the benchmark
                         warn!("transport error: {e:?}");
                     }
 
