@@ -3,14 +3,10 @@ use crate::util::{now_ms, pad_payload, topic_from_name};
 use anyhow::Result;
 use async_trait::async_trait;
 use bytes::Bytes;
-use iroh::discovery::mdns::MdnsDiscovery;
+use iroh::NodeId;
 use iroh::{Endpoint, RelayMode, SecretKey, protocol::Router};
-use iroh_gossip::{
-    ALPN,
-    api::{Event, GossipTopic},
-    net::Gossip,
-    proto::TopicId,
-};
+use iroh_gossip::api::GossipTopic;
+use iroh_gossip::{ALPN, api::Event, net::Gossip, proto::TopicId};
 use postcard;
 use rand::RngCore;
 use std::str::FromStr;
@@ -91,16 +87,16 @@ impl IrohGossip {
 
         // Configure Discovery depending on selected mode
         builder = match discovery {
-            Discovery::Direct => {
-                let mdns = MdnsDiscovery::builder();
-                builder.relay_mode(RelayMode::Disabled).discovery(mdns)
-            }
-            Discovery::Relay => builder.relay_mode(RelayMode::Default),
+            Discovery::Direct => builder
+                .discovery_local_network()
+                .relay_mode(RelayMode::Disabled),
+            Discovery::Relay => builder.discovery_n0().relay_mode(RelayMode::Default),
         };
 
         // Create endpoint and print node_id for scripts/orchestration.
         let endpoint = builder.bind().await?;
         let id = endpoint.node_id().to_string();
+        eprintln!("node_id={}", id);
 
         // Initialize gossip and router.
         let gossip = Gossip::builder().spawn(endpoint.clone());
@@ -120,14 +116,14 @@ impl IrohGossip {
         };
 
         // Optional bootstrap peers (used only in relay discovery).
-        let node_ids = if matches!(discovery, Discovery::Relay) {
-            bootstrap
-                .into_iter()
-                .filter_map(|b| b.parse().ok())
-                .collect()
-        } else {
-            Vec::new()
-        };
+        let node_ids: Vec<NodeId> = bootstrap
+            .into_iter()
+            .filter_map(|b| b.parse::<NodeId>().ok())
+            .collect();
+
+        if !node_ids.is_empty() {
+            eprintln!("bootstraps_parsed={}", node_ids.len());
+        }
 
         // Join the topic and get a handle for message broadcast + receive.
         let mut topic_handle: GossipTopic = gossip.subscribe_and_join(topic, node_ids).await?;
