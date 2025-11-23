@@ -1,3 +1,4 @@
+use crate::metrics::TransportEvent;
 use crate::metrics::{DataMsg, LogEvent, Stats, Summary};
 use crate::util::{now_ms, pad_payload, topic_from_name};
 use anyhow::Result;
@@ -36,7 +37,7 @@ pub trait Transport: Send + Sync {
     async fn broadcast(&self, bytes: Bytes) -> Result<()>;
 
     /// Waits for and returns the next recieved message (or an error).
-    async fn next(&mut self) -> Option<Result<Bytes>>;
+    async fn next(&mut self) -> Option<Result<TransportEvent>>;
 }
 
 /// Implementation of the gossip-based transport using the 'iroh-gossip' protocol.
@@ -44,7 +45,7 @@ pub struct IrohGossip {
     /// Local node ID (as string for logging)
     id: String,
     /// Stream for receiving messages
-    rx: tokio_stream::wrappers::ReceiverStream<anyhow::Result<Bytes>>,
+    rx: tokio_stream::wrappers::ReceiverStream<anyhow::Result<TransportEvent>>,
     /// Channel for outgoing messages
     tx: tokio::sync::mpsc::Sender<Bytes>,
     /// Underlying iroh endpoint
@@ -134,7 +135,8 @@ impl IrohGossip {
         //  * tx/mpsc_rx for outgoing messages,
         //  * mpsc_tx2/mpsc_rx2 for forwarding received messages to the app.
         let (tx, mut mpsc_rx) = tokio::sync::mpsc::channel::<Bytes>(128);
-        let (mpsc_tx2, mpsc_rx2) = tokio::sync::mpsc::channel::<anyhow::Result<Bytes>>(1024);
+        let (mpsc_tx2, mpsc_rx2) =
+            tokio::sync::mpsc::channel::<anyhow::Result<TransportEvent>>(1024);
 
         tokio::spawn(async move {
             while let Some(broadcast) = mpsc_rx.recv().await {
@@ -149,15 +151,27 @@ impl IrohGossip {
             loop {
                 match receiver.next().await {
                     Some(Ok(Event::Received(m))) => {
-                        let _ = mpsc_tx2.send(Ok(Bytes::from(m.content))).await;
+                        let _ = mpsc_tx2
+                            .send(Ok(TransportEvent::Msg(Bytes::from(m.content))))
+                            .await;
                     }
+
                     Some(Ok(Event::Lagged)) => {
-                        let _ = mpsc_tx2.send(Err(anyhow::anyhow!("lagged"))).await;
+                        let _ = mpsc_tx2.send(Ok(TransportEvent::Lagged)).await;
                     }
-                    Some(Ok(_)) => {}
+
+                    Some(Ok(Event::NeighborUp(_node))) => {
+                        let _ = mpsc_tx2.send(Ok(TransportEvent::Reconnect)).await;
+                    }
+
+                    Some(Ok(Event::NeighborDown(_node))) => {
+                        let _ = mpsc_tx2.send(Ok(TransportEvent::Disconnect)).await;
+                    }
+
                     Some(Err(e)) => {
                         let _ = mpsc_tx2.send(Err(e.into())).await;
                     }
+
                     None => break,
                 }
             }
@@ -184,7 +198,7 @@ impl Transport for IrohGossip {
         self.tx.send(bytes).await?;
         Ok(())
     }
-    async fn next(&mut self) -> Option<Result<Bytes>> {
+    async fn next(&mut self) -> Option<Result<TransportEvent>> {
         self.rx.next().await.map(|r| r.map_err(|e| e.into()))
     }
 }
@@ -259,21 +273,26 @@ pub async fn run_receiver<T: Transport>(
     let mut last = now_ms();
     let mut stats = Stats::default();
     let mut current_test: Option<[u8; 16]> = None;
+    let mut connected_peers: u64 = 0;
 
     loop {
         select! {
             // Check periodically for idle timeout.
             biased;
             _ = sleep(Duration::from_millis(50)) => {},
-            msg = transport.next() => {
-                match msg {
-                    // Message received successfully.
-                    Some(Ok(b)) => {
+            event = transport.next() => {
+                 match event {
+                    Some(Ok(TransportEvent::Msg(b))) => {
                         last = now_ms();
+
                         if let Ok(m) = postcard::from_bytes::<DataMsg>(&b) {
-                            if current_test.is_none() { current_test = Some(m.test_id); }
+                            if current_test.is_none() {
+                                current_test = Some(m.test_id);
+                            }
+
                             if Some(m.test_id) == current_test {
                                 stats.record(&m);
+
                                 log.write(&LogEvent {
                                     ts_ms: now_ms(),
                                     role: "receiver",
@@ -286,22 +305,69 @@ pub async fn run_receiver<T: Transport>(
                         }
                     }
 
-                    // Lagged event reported by gossip.
-                    Some(Err(e)) => {
-                        if e.to_string().contains("lagged") {
-                            stats.lagged_events += 1;
-                            log.write(&LogEvent {
-                                ts_ms: now_ms(),
-                                role: "receiver",
-                                peer_id: &transport.id(),
-                                event: "lagged",
-                                seq: None,
-                                extra: serde_json::json!({}),
-                            })?;
-                        }
+                    Some(Ok(TransportEvent::Lagged)) => {
+                        stats.note_lagged();
+
+                        log.write(&LogEvent {
+                            ts_ms: now_ms(),
+                            role: "receiver",
+                            peer_id: &transport.id(),
+                            event: "lagged",
+                            seq: None,
+                            extra: serde_json::json!({}),
+                        })?;
                     }
 
-                    // No more messages -> channel closed.
+                    Some(Ok(TransportEvent::Disconnect)) => {
+                        let ts = now_ms();
+
+                        if connected_peers > 0 {
+                            connected_peers -= 1;
+                        }
+
+                        stats.record_peer_view(ts, connected_peers, connected_peers);
+
+                        stats.note_disconnect(ts);
+
+                        log.write(&LogEvent {
+                            ts_ms: ts,
+                            role: "receiver",
+                            peer_id: &transport.id(),
+                            event: "neighbor_down",
+                            seq: None,
+                            extra: serde_json::json!({
+                                "connected": connected_peers,
+                                "reachable": connected_peers
+                            }),
+                        })?;
+                    }
+
+                    Some(Ok(TransportEvent::Reconnect)) => {
+                        let ts = now_ms();
+
+                        connected_peers += 1;
+
+                        stats.record_peer_view(ts, connected_peers, connected_peers);
+
+                        stats.note_reconnect(ts);
+
+                        log.write(&LogEvent {
+                            ts_ms: ts,
+                            role: "receiver",
+                            peer_id: &transport.id(),
+                            event: "neighbor_up",
+                            seq: None,
+                            extra: serde_json::json!({
+                                "connected": connected_peers,
+                                "reachable": connected_peers
+                            }),
+                        })?;
+                    }
+
+                    Some(Err(e)) => {
+                        warn!("transport error: {e:?}");
+                    }
+
                     None => break,
                 }
             }

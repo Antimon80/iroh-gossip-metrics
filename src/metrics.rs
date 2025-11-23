@@ -1,4 +1,5 @@
 use crate::util::now_ms;
+use bytes::Bytes;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, fs::File, io::Write, path::Path};
 
@@ -9,6 +10,14 @@ pub struct DataMsg {
     pub sent_ms: u64,
     pub total: u64,
     pub pad: Vec<u8>,
+}
+
+#[derive(Debug, Clone)]
+pub enum TransportEvent {
+    Msg(Bytes),
+    Lagged,
+    Disconnect,
+    Reconnect,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -176,8 +185,11 @@ impl Stats {
     }
 
     pub fn note_reconnect(&mut self, ts_ms: u64) {
-        self.last_disconnect_ts = Some(ts_ms);
-        self.waiting_first_after_reconnect = true;
+        if self.last_disconnect_ts.is_some() {
+            self.waiting_first_after_reconnect = true;
+        } else {
+            self.waiting_first_after_reconnect = false;
+        }
     }
 
     fn quantil(sorted: &[u64], quantil: f64) -> Option<u64> {
