@@ -154,6 +154,12 @@ pub struct Summary {
     pub rt_p50_ms: Option<u64>,
     pub rt_p90_ms: Option<u64>,
     pub rt_max_ms: Option<u64>,
+
+    // startup/termination flags
+    pub joined: bool,
+    pub join_wait_ms: u64,
+    pub saw_test: bool,
+    pub timed_out_no_data: bool,
 }
 
 impl Stats {
@@ -248,7 +254,7 @@ impl Stats {
     ///
     /// We only compute reconnect time once the first message arrives after reconnect,
     /// because that's when the system is effectively usable again.
-    pub fn note_reconnect(&mut self, ts_ms: u64) {
+    pub fn note_reconnect(&mut self) {
         if self.last_disconnect_ts.is_some() {
             self.waiting_first_after_reconnect = true;
         } else {
@@ -344,6 +350,12 @@ impl Stats {
             rt_p50_ms: Self::quantil(&rts, 0.50),
             rt_p90_ms: Self::quantil(&rts, 0.90),
             rt_max_ms: rts.last().copied(),
+
+            // startup/termination flags (defaults)
+            joined: false,
+            join_wait_ms: 0,
+            saw_test: false,
+            timed_out_no_data: false,
         }
     }
 }

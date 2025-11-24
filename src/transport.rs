@@ -6,14 +6,13 @@ use async_trait::async_trait;
 use bytes::Bytes;
 use iroh::NodeId;
 use iroh::{Endpoint, RelayMode, SecretKey, protocol::Router};
-use iroh_gossip::api::GossipTopic;
 use iroh_gossip::{ALPN, api::Event, net::Gossip, proto::TopicId};
 use postcard;
 use rand::RngCore;
 use std::str::FromStr;
 use tokio::{
     select,
-    time::{Duration, sleep},
+    time::{Duration, sleep, timeout},
 };
 use tokio_stream::StreamExt;
 use tracing::warn;
@@ -39,6 +38,20 @@ pub trait Transport: Send + Sync {
 
     /// Waits for and returns the next recieved message (or an error).
     async fn next(&mut self) -> Option<Result<TransportEvent>>;
+
+    /// Whether this peer observed a confirmed gossip join.
+    ///
+    /// For degraded scenarios, join may time out. In that case
+    /// transports should return `false` and the benchmark must
+    /// still terminate and log this fact.
+    fn joined(&self) -> bool {
+        true
+    }
+
+    /// How long we waited for join confirmation (ms).
+    fn join_wait_ms(&self) -> u64 {
+        0
+    }
 }
 
 /// Implementation of the gossip-based transport using the 'iroh-gossip' protocol.
@@ -57,17 +70,21 @@ pub struct IrohGossip {
     _gossip: Gossip,
     /// Discovery mode (direct or relay)
     _discovery: Discovery,
+    /// join status for metrics/termination
+    joined: bool,
+    join_wait_ms: u64,
 }
 
 impl IrohGossip {
     /// Establishes an iroh-gossip connection for the given topic and discovery mode.
     ///
-    /// # Arguments
-    /// * `topic_hex` – Optional topic ID in hexadecimal format.
-    /// * `topic_name` – Optional topic name (used if `topic_hex` is not given).
-    /// * `secret_hex` – Optional secret key for reproducible node IDs.
-    /// * `bootstrap` – List of bootstrap node IDs (only used for relay mode).
-    /// * `discovery` – Discovery type (`Direct` or `Relay`).
+    /// This version is fully robust:
+    /// - `subscribe_and_join` is wrapped in a timeout (prevents hanging forever)
+    /// - If join fails or times out, a functional Transport is still returned
+    /// - The receiver loop will then run with an empty RX-stream and terminate cleanly
+    /// - This guarantees that test runs *always* finish and always produce logs.
+    ///
+    /// The `joined` flag and `join_wait_ms` reflect whether the join actually succeeded.
     pub async fn connect(
         topic_hex: Option<String>,
         topic_name: Option<String>,
@@ -75,7 +92,9 @@ impl IrohGossip {
         bootstrap: Vec<String>,
         discovery: Discovery,
     ) -> Result<Self> {
-        // Optional secret key ensures a deterministic node ID.
+        // -------------------------------------------------------------
+        // 1) Build endpoint (optional deterministic secret key)
+        // -------------------------------------------------------------
         let mut builder = Endpoint::builder();
 
         if let Some(ref hex) = secret_hex {
@@ -87,7 +106,7 @@ impl IrohGossip {
             builder = builder.secret_key(secret_key);
         }
 
-        // Configure Discovery depending on selected mode
+        // Select discovery mode
         builder = match discovery {
             Discovery::Direct => builder
                 .discovery_local_network()
@@ -95,18 +114,20 @@ impl IrohGossip {
             Discovery::Relay => builder.discovery_n0().relay_mode(RelayMode::Default),
         };
 
-        // Create endpoint and print node_id for scripts/orchestration.
+        // Create endpoint
         let endpoint = builder.bind().await?;
         let id = endpoint.node_id().to_string();
         eprintln!("node_id={}", id);
 
-        // Initialize gossip and router.
+        // Start gossip + router
         let gossip = Gossip::builder().spawn(endpoint.clone());
         let router = Router::builder(endpoint.clone())
             .accept(ALPN, gossip.clone())
             .spawn();
 
-        // Determine topic ID (hex, name-derived, or random).
+        // -------------------------------------------------------------
+        // 2) Determine topic ID
+        // -------------------------------------------------------------
         let topic = if let Some(h) = topic_hex {
             TopicId::from_str(&h)?
         } else if let Some(n) = topic_name {
@@ -117,7 +138,7 @@ impl IrohGossip {
             TopicId::from_bytes(rnd)
         };
 
-        // Optional bootstrap peers (used only in relay discovery).
+        // Parse bootstrap NodeIDs (relay mode only)
         let node_ids: Vec<NodeId> = bootstrap
             .into_iter()
             .filter_map(|b| b.parse::<NodeId>().ok())
@@ -127,65 +148,115 @@ impl IrohGossip {
             eprintln!("bootstraps_parsed={}", node_ids.len());
         }
 
-        // Join the topic and get a handle for message broadcast + receive.
-        let mut topic_handle: GossipTopic = gossip.subscribe_and_join(topic, node_ids).await?;
-        topic_handle.joined().await.ok();
-        let (sender, mut receiver) = topic_handle.split();
+        // -------------------------------------------------------------
+        // 3) subscribe_and_join MUST NOT HANG → wrap in timeout
+        // -------------------------------------------------------------
+        let join_timeout = match discovery {
+            Discovery::Direct => Duration::from_secs(5),
+            Discovery::Relay => Duration::from_secs(30),
+        };
 
-        //  Create two channels:
-        //  * tx/mpsc_rx for outgoing messages,
-        //  * mpsc_tx2/mpsc_rx2 for forwarding received messages to the app.
-        let (tx, mut mpsc_rx) = tokio::sync::mpsc::channel::<Bytes>(128);
-        let (mpsc_tx2, mpsc_rx2) =
-            tokio::sync::mpsc::channel::<anyhow::Result<TransportEvent>>(1024);
+        let join_start = now_ms();
 
-        tokio::spawn(async move {
-            while let Some(broadcast) = mpsc_rx.recv().await {
-                if let Err(e) = sender.broadcast(broadcast).await {
-                    warn!("gossip broadcast error: {e:?}");
-                }
+        let topic_handle_result =
+            timeout(join_timeout, gossip.subscribe_and_join(topic, node_ids)).await;
+
+        // Outgoing and incoming channels (always created so caller can run)
+        let (tx, mut tx_rx) = tokio::sync::mpsc::channel::<Bytes>(128);
+        let (ev_tx, ev_rx) = tokio::sync::mpsc::channel::<anyhow::Result<TransportEvent>>(1024);
+
+        // Values to return
+        let joined: bool;
+        let join_wait_ms: u64;
+
+        match topic_handle_result {
+            // Case A: subscribe_and_join completed (success or error)
+            Ok(Ok(mut topic_handle)) => {
+                // Now wait on topic_handle.joined() but also time-limited
+                joined = match timeout(join_timeout, topic_handle.joined()).await {
+                    Ok(Ok(())) => {
+                        eprintln!("joined=1");
+                        true
+                    }
+                    _ => {
+                        eprintln!("joined=0 timeout_ms={}", join_timeout.as_millis());
+                        false
+                    }
+                };
+                join_wait_ms = now_ms().saturating_sub(join_start);
+
+                let (sender, mut receiver) = topic_handle.split();
+
+                // Spawn outgoing broadcast task
+                let ev_tx_out = ev_tx.clone();
+                tokio::spawn(async move {
+                    while let Some(msg) = tx_rx.recv().await {
+                        if let Err(e) = sender.broadcast(msg).await {
+                            warn!("broadcast error: {e:?}");
+                            let _ = ev_tx_out.send(Err(e.into())).await;
+                        }
+                    }
+                });
+
+                // Spawn incoming event task
+                tokio::spawn(async move {
+                    while let Some(item) = receiver.next().await {
+                        match item {
+                            Ok(Event::Received(m)) => {
+                                let _ = ev_tx
+                                    .send(Ok(TransportEvent::Msg(Bytes::from(m.content))))
+                                    .await;
+                            }
+                            Ok(Event::Lagged) => {
+                                let _ = ev_tx.send(Ok(TransportEvent::Lagged)).await;
+                            }
+                            Ok(Event::NeighborUp(_)) => {
+                                let _ = ev_tx.send(Ok(TransportEvent::Reconnect)).await;
+                            }
+                            Ok(Event::NeighborDown(_)) => {
+                                let _ = ev_tx.send(Ok(TransportEvent::Disconnect)).await;
+                            }
+                            Err(e) => {
+                                let _ = ev_tx.send(Err(e.into())).await;
+                            }
+                        }
+                    }
+                });
             }
-        });
 
-        // Task handling outgoing gossip broadcasts.
-        tokio::spawn(async move {
-            loop {
-                match receiver.next().await {
-                    Some(Ok(Event::Received(m))) => {
-                        let _ = mpsc_tx2
-                            .send(Ok(TransportEvent::Msg(Bytes::from(m.content))))
-                            .await;
-                    }
+            // Case B: subscribe_and_join returned an error immediately
+            Ok(Err(e)) => {
+                eprintln!("joined=0 subscribe_error={e:?}");
+                joined = false;
+                join_wait_ms = now_ms().saturating_sub(join_start);
 
-                    Some(Ok(Event::Lagged)) => {
-                        let _ = mpsc_tx2.send(Ok(TransportEvent::Lagged)).await;
-                    }
-
-                    Some(Ok(Event::NeighborUp(_node))) => {
-                        let _ = mpsc_tx2.send(Ok(TransportEvent::Reconnect)).await;
-                    }
-
-                    Some(Ok(Event::NeighborDown(_node))) => {
-                        let _ = mpsc_tx2.send(Ok(TransportEvent::Disconnect)).await;
-                    }
-
-                    Some(Err(e)) => {
-                        let _ = mpsc_tx2.send(Err(e.into())).await;
-                    }
-
-                    None => break,
-                }
+                // Closing sender terminates RX immediately
+                drop(ev_tx);
             }
-        });
 
+            // Case C: subscribe_and_join timed out entirely
+            Err(_) => {
+                eprintln!("joined=0 subscribe_timeout_ms={}", join_timeout.as_millis());
+                joined = false;
+                join_wait_ms = now_ms().saturating_sub(join_start);
+
+                drop(ev_tx);
+            }
+        }
+
+        // -------------------------------------------------------------
+        // 4) Always return a fully usable Transport object
+        // -------------------------------------------------------------
         Ok(Self {
             id,
-            rx: tokio_stream::wrappers::ReceiverStream::new(mpsc_rx2),
+            rx: tokio_stream::wrappers::ReceiverStream::new(ev_rx),
             tx,
             _endpoint: endpoint,
             _router: router,
             _gossip: gossip,
             _discovery: discovery,
+            joined,
+            join_wait_ms,
         })
     }
 }
@@ -195,10 +266,20 @@ impl Transport for IrohGossip {
     fn id(&self) -> String {
         format!("gossip:{}", self.id)
     }
+
+    fn joined(&self) -> bool {
+        self.joined
+    }
+
+    fn join_wait_ms(&self) -> u64 {
+        self.join_wait_ms
+    }
+
     async fn broadcast(&self, bytes: Bytes) -> Result<()> {
         self.tx.send(bytes).await?;
         Ok(())
     }
+
     async fn next(&mut self) -> Option<Result<TransportEvent>> {
         self.rx.next().await.map(|r| r.map_err(|e| e.into()))
     }
@@ -260,40 +341,65 @@ pub async fn run_sender<T: Transport>(
 }
 
 /// Runs the receiver role: continuously listens for incoming messages,
-/// records statistics, and returns a summarized `Summary` after idle timeout.
+/// records statistics, and returns a summarized `Summary`.
+///
+/// Termination is two-stage:
+/// 1) If we have seen at least one valid test message (total_expected > 0),
+///    we stop after `report_after_idle_ms` without further valid test messages.
+/// 2) If we have NOT seen any valid test message at all,
+///    we still stop after `report_after_idle_ms` since start.
+///    This prevents "forever receivers" under high loss/partition.
 ///
 /// # Parameters
 /// * `transport` – Active gossip transport.
 /// * `log` – JSONL writer for structured logs.
-/// * `report_after_idle_ms` – Duration of inactivity after which to summarize.
+/// * `report_after_idle_ms` – Idle timeout (ms).
 pub async fn run_receiver<T: Transport>(
     mut transport: T,
     log: &mut crate::metrics::JsonWriter,
     report_after_idle_ms: u64,
 ) -> anyhow::Result<Summary> {
-    let mut last = now_ms();
+    let start_ms = now_ms();
+
+    // Last time we saw a valid message for the active test.
+    let mut last_valid_ms = start_ms;
+
     let mut stats = Stats::default();
     let mut current_test: Option<[u8; 16]> = None;
     let mut connected_peers: u64 = 0;
 
+    // Write log event if receiver couldn't join topic
+    if !transport.joined() {
+        log.write(&LogEvent {
+            ts_ms: now_ms(),
+            role: "receiver",
+            peer_id: &transport.id(),
+            event: "no_join",
+            seq: None,
+            extra: serde_json::json!({
+                "join_wait_ms": transport.join_wait_ms(),
+            }),
+        })?;
+    }
+
     loop {
         select! {
-            // Check periodically for idle timeout.
             biased;
             _ = sleep(Duration::from_millis(50)) => {},
-            event = transport.next() => {
-                 match event {
-                    Some(Ok(TransportEvent::Msg(b))) => {
-                        last = now_ms();
 
+            event = transport.next() => {
+                match event {
+                    Some(Ok(TransportEvent::Msg(b))) => {
                         if let Ok(m) = postcard::from_bytes::<DataMsg>(&b) {
-                            // First message defines the active test
+
+                            // First valid DataMsg defines the active test.
                             if current_test.is_none() {
                                 current_test = Some(m.test_id);
                             }
 
-                            // Only record messages for the active test_id
+                            // Only record messages for the active test.
                             if Some(m.test_id) == current_test {
+                                last_valid_ms = now_ms();
                                 stats.record(&m);
 
                                 log.write(&LogEvent {
@@ -308,10 +414,8 @@ pub async fn run_receiver<T: Transport>(
                         }
                     }
 
-                    // Receiver lag indicates internal buffering overflow
                     Some(Ok(TransportEvent::Lagged)) => {
                         stats.note_lagged();
-
                         log.write(&LogEvent {
                             ts_ms: now_ms(),
                             role: "receiver",
@@ -324,15 +428,10 @@ pub async fn run_receiver<T: Transport>(
 
                     Some(Ok(TransportEvent::Disconnect)) => {
                         let ts = now_ms();
-
-                        // Maintain a simple neighbor count for peer-view metrics
                         if connected_peers > 0 {
                             connected_peers -= 1;
                         }
-
-                        // Record instantaneous peer view (connected == reachable here)
                         stats.record_peer_view(ts, connected_peers, connected_peers);
-
                         stats.note_disconnect(ts);
 
                         log.write(&LogEvent {
@@ -350,13 +449,9 @@ pub async fn run_receiver<T: Transport>(
 
                     Some(Ok(TransportEvent::Reconnect)) => {
                         let ts = now_ms();
-
                         connected_peers += 1;
-
-                        // Record instantaneous peer view (connected == reachable here)
                         stats.record_peer_view(ts, connected_peers, connected_peers);
-
-                        stats.note_reconnect(ts);
+                        stats.note_reconnect();
 
                         log.write(&LogEvent {
                             ts_ms: ts,
@@ -372,7 +467,6 @@ pub async fn run_receiver<T: Transport>(
                     }
 
                     Some(Err(e)) => {
-                        // Transport errors are logged but do not stop the benchmark
                         warn!("transport error: {e:?}");
                     }
 
@@ -381,12 +475,25 @@ pub async fn run_receiver<T: Transport>(
             }
         }
 
-        // If idle for a given duration and message were received, stop.
-        if now_ms().saturating_sub(last) > report_after_idle_ms && stats.total_expected > 0 {
+        let now = now_ms();
+
+        // Case 1: test seen -> idle based on valid test data.
+        if stats.total_expected > 0 && now.saturating_sub(last_valid_ms) > report_after_idle_ms {
+            break;
+        }
+
+        // Case 2: no test seen at all -> wall-clock timeout since start.
+        if stats.total_expected == 0 && now.saturating_sub(start_ms) > report_after_idle_ms {
             break;
         }
     }
 
-    // Return final metrics summary.
-    Ok(stats.summarize())
+    let mut summary = stats.summarize();
+
+    summary.joined = transport.joined();
+    summary.join_wait_ms = transport.join_wait_ms();
+    summary.saw_test = summary.total_expected > 0;
+    summary.timed_out_no_data = !summary.saw_test;
+
+    Ok(summary)
 }

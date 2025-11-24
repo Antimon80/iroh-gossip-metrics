@@ -36,7 +36,8 @@ echo "== Build project =="
 cargo build --release
 
 echo "== Apply scenario on bridge $BR =="
-bash "$ROOT/$SCENARIO" "$BR"
+export PEERS
+bash "$ROOT/scripts/scenarios/netem-loss30-delay50.sh"
 
 #############################################
 # 1) BOOTSTRAP RECEIVER (PEER 1)
@@ -146,4 +147,3 @@ echo "== [netns] cleanup =="
 cleanup_netns
 
 echo "== UC3 done. Logs in $LOGDIR =="
-ls -1 "$LOGDIR" | sed 's/^/  - /'

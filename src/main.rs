@@ -89,7 +89,7 @@ async fn main() -> Result<()> {
 
             logger.write(&metrics::LogEvent {
                 ts_ms: util::now_ms(),
-                role: "setup",
+                role: "sender",
                 peer_id: &gossip.id(),
                 event: "setup",
                 seq: None,
@@ -97,9 +97,25 @@ async fn main() -> Result<()> {
                     "discovery": args.discovery,
                     "num": args.num,
                     "rate": args.rate,
-                    "size": args.size
+                    "size": args.size,
+                    "joined": gossip.joined(),
+                    "join_wait_ms": gossip.join_wait_ms(),
                 }),
             })?;
+
+            if !gossip.joined() {
+                logger.write(&metrics::LogEvent {
+                    ts_ms: util::now_ms(),
+                    role: "sender",
+                    peer_id: &gossip.id(),
+                    event: "no_join",
+                    seq: None,
+                    extra: serde_json::json!({
+                        "join_wait_ms": gossip.join_wait_ms(),
+                    }),
+                })?;
+                return Ok(()); // exit cleanly
+            }
 
             transport::run_sender(gossip, &mut logger, args.num, args.rate, args.size).await?;
         }
@@ -120,12 +136,14 @@ async fn main() -> Result<()> {
 
             logger.write(&metrics::LogEvent {
                 ts_ms: util::now_ms(),
-                role: "setup",
+                role: "receiver",
                 peer_id: &gossip.id(),
                 event: "setup",
                 seq: None,
                 extra: serde_json::json!({
-                    "discovery": args.discovery
+                    "discovery": args.discovery,
+                    "joined": gossip.joined(),
+                    "join_wait_ms": gossip.join_wait_ms(),
                 }),
             })?;
 
