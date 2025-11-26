@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# UC2: 20 machines in same LAN, Relay discovery
+# UC2: all peers in same LAN, Relay discovery
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 source "$ROOT/scripts/netns/common_netns.sh"

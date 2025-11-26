@@ -152,7 +152,7 @@ impl IrohGossip {
         // -------------------------------------------------------------
         // 3) subscribe_and_join MUST NOT HANG → wrap in timeout
         // -------------------------------------------------------------
-        let join_timeout = Duration::from_secs(60);
+        let join_timeout = Duration::from_secs(30);
 
         let join_start = now_ms();
 

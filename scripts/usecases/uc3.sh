@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# UC3: Relay-assisted discovery, degraded network (delay/loss)
-# same as UC2 but with netem impairments injected on the bridge.
+# UC3: Direct discovery, degraded network (delay/loss)
+# same as UC1 but with netem impairments injected on the bridge.
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 source "$ROOT/scripts/netns/common_netns.sh"
@@ -14,10 +14,10 @@ PEERS="$1"
 NUM="$2"
 RATE="$3"
 SIZE="$4"
-DISCOVERY="${5:-RELAY}"
+DISCOVERY="${5:-DIRECT}"
 
 TOPIC="${TOPIC:-lab}"
-BASELOG="${LOGDIR:-logs/uc3-relay-degraded}"
+BASELOG="${LOGDIR:-logs/uc3-direct-degraded}"
 
 # Create parameter-tagged run directory
 TS=$(date +"%Y%m%d-%H%M%S")
@@ -29,14 +29,13 @@ BIN="$ROOT/target/release/iroh-gossip-metrics"
 
 mkdir -p "$LOGDIR"
 
-echo "== UC3 Relay Degraded with $PEERS peers =="
+echo "== UC3 Direct Degraded with $PEERS peers =="
 echo "SCENARIO=$SCENARIO NUM=$NUM RATE=$RATE SIZE=$SIZE TOPIC=$TOPIC"
 echo
 
 cleanup_netns || true
 setup_bridge
 setup_namespaces
-enable_internet_for_netns
 
 echo "== Build project =="
 cargo build --release
@@ -61,7 +60,7 @@ run_in_ns 1 "$BIN" \
   --log "$BOOT_RLOG" \
   --idle-report-ms 12000 \
   --topic-name "$TOPIC" \
-  --discovery relay \
+  --discovery direct \
   1> "$BOOT_SUM" \
   2> "$BOOT_RERR" &
 BOOT_PID=$!
@@ -106,7 +105,7 @@ for i in $(seq 2 "$PEERS"); do
     --log "$RLOG" \
     --idle-report-ms 12000 \
     --topic-name "$TOPIC" \
-    --discovery relay \
+    --discovery direct \
     --bootstrap "$NODE_ID" \
     1> "$RSUM" \
     2> "$RERR" &
@@ -129,7 +128,7 @@ run_in_ns 1 "$BIN" \
   --rate "$RATE" \
   --size "$SIZE" \
   --topic-name "$TOPIC" \
-  --discovery relay \
+  --discovery direct \
   --bootstrap "$NODE_ID"
 
 #############################################
