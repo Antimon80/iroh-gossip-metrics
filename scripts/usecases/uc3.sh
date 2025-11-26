@@ -10,14 +10,20 @@ export NETNS_INTERNET=1
 
 # Default: degraded scenario
 SCENARIO="${SCENARIO:-scripts/scenarios/netem-loss30-delay50.sh}"
-PEERS="${1:-20}"
-NUM="${2:-2000}"
-RATE="${3:-50}"
-SIZE="${4:-256}"
+PEERS="$1"
+NUM="$2"
+RATE="$3"
+SIZE="$4"
+DISCOVERY="${5:-RELAY}"
 
 TOPIC="${TOPIC:-lab}"
 BASELOG="${LOGDIR:-logs/uc3-relay-degraded}"
-RUN_ID=$(date +"run-%Y%m%d-%H%M%S")
+
+# Create parameter-tagged run directory
+TS=$(date +"%Y%m%d-%H%M%S")
+TAG="uc3_p${PEERS}_m${NUM}_r${RATE}_s${SIZE}_${DISCOVERY}"
+RUN_ID="run-${TS}_${TAG}"
+
 LOGDIR="$BASELOG/$RUN_ID"
 BIN="$ROOT/target/release/iroh-gossip-metrics"
 
@@ -37,7 +43,7 @@ cargo build --release
 
 echo "== Apply scenario on bridge $BR =="
 export PEERS
-bash "$ROOT/scripts/scenarios/netem-loss30-delay50.sh"
+bash "$ROOT/$SCENARIO" "$BR"
 
 #############################################
 # 1) BOOTSTRAP RECEIVER (PEER 1)

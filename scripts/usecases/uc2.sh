@@ -8,14 +8,20 @@ source "$ROOT/scripts/netns/common_netns.sh"
 export NETNS_INTERNET=1
 
 SCENARIO="${SCENARIO:-scripts/scenarios/netem-none.sh}"
-PEERS="${1:-20}"
-NUM="${2:-2000}"
-RATE="${3:-50}"
-SIZE="${4:-256}"
+PEERS="$1"
+NUM="$2"
+RATE="$3"
+SIZE="$4"
+DISCOVERY="${5:-RELAY}"
 
 TOPIC="${TOPIC:-lab}"
-BASELOG="${LOGDIR:-logs/uc2-relay}"
-RUN_ID=$(date +"run-%Y%m%d-%H%M%S")
+BASELOG="${LOGDIR:-logs/uc2}"
+
+# Create parameter-tagged run directory
+TS=$(date +"%Y%m%d-%H%M%S")
+TAG="uc2_p${PEERS}_m${NUM}_r${RATE}_s${SIZE}_${DISCOVERY}"
+RUN_ID="run-${TS}_${TAG}"
+
 LOGDIR="$BASELOG/$RUN_ID"
 BIN="$ROOT/target/release/iroh-gossip-metrics"
 
@@ -144,4 +150,3 @@ echo "== [netns] cleanup =="
 cleanup_netns
 
 echo "== UC2 done. Logs in $LOGDIR =="
-ls -1 "$LOGDIR" | sed 's/^/  - /'

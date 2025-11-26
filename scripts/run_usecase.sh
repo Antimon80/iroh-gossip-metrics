@@ -2,27 +2,40 @@
 set -euo pipefail
 
 # Usage:
-#   scripts/run_usecase.sh uc1 [peers] [num] [rate] [size]
-#   scripts/run_usecase.sh uc2 [peers] [num] [rate] [size]
-#   scripts/run_usecase.sh uc3 [peers] [num] [rate] [size]
+#   scripts/run_usecase.sh uc1 [peers] [num] [rate] [size] [repeat]
+#   scripts/run_usecase.sh uc2 [peers] [num] [rate] [size] [repeat]
+#   scripts/run_usecase.sh uc3 [peers] [num] [rate] [size] [repeat]
 #
-# Scenario is optional via ENV:
-#   SCENARIO=scripts/scenarios/netem-loss10.sh scripts/run_usecase.sh uc3
+# The last optional argument specifies how many times to run the use case.
+# A fixed 5-second pause is inserted between runs.
 
 UC="${1:-uc1}"
 shift || true
 
-PEERS="${1:-20}"
+PEERS="${1:-50}"
 NUM="${2:-2000}"
-RATE="${3:-50}"
+RATE="${3:-10}"
 SIZE="${4:-256}"
+REPEAT="${5:-1}"
 
-case "$UC" in
-  uc1|uc2|uc3)
-    exec "scripts/usecases/${UC}.sh" "$PEERS" "$NUM" "$RATE" "$SIZE"
-    ;;
-  *)
-    echo "Unknown use case: $UC (use uc1, uc2, uc3)" >&2
-    exit 2
-    ;;
-esac
+for run in $(seq 1 "$REPEAT"); do
+  echo "===================================="
+  echo " Running $UC (run $run of $REPEAT)"
+  echo "===================================="
+
+  case "$UC" in
+    uc1|uc2|uc3)
+      scripts/usecases/${UC}.sh "$PEERS" "$NUM" "$RATE" "$SIZE"
+      ;;
+    *)
+      echo "Unknown use case: $UC (use uc1, uc2, uc3)" >&2
+      exit 2
+      ;;
+  esac
+
+  # Pause only if another run will follow
+  if [[ $run -lt $REPEAT ]]; then
+    echo "Waiting 5 seconds before next run..."
+    sleep 5
+  fi
+done

@@ -93,6 +93,8 @@ async fn main() -> Result<()> {
                 peer_id: &gossip.id(),
                 event: "setup",
                 seq: None,
+                lat_ms: None,
+                ldh: None,
                 extra: serde_json::json!({
                     "discovery": args.discovery,
                     "num": args.num,
@@ -110,11 +112,13 @@ async fn main() -> Result<()> {
                     peer_id: &gossip.id(),
                     event: "no_join",
                     seq: None,
+                    lat_ms: None,
+                    ldh: None,
                     extra: serde_json::json!({
                         "join_wait_ms": gossip.join_wait_ms(),
                     }),
                 })?;
-                return Ok(()); // exit cleanly
+                return Ok(());
             }
 
             transport::run_sender(gossip, &mut logger, args.num, args.rate, args.size).await?;
@@ -140,6 +144,8 @@ async fn main() -> Result<()> {
                 peer_id: &gossip.id(),
                 event: "setup",
                 seq: None,
+                lat_ms: None,
+                ldh: None,
                 extra: serde_json::json!({
                     "discovery": args.discovery,
                     "joined": gossip.joined(),

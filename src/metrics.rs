@@ -26,13 +26,19 @@ pub struct DataMsg {
 }
 
 // Transport-level events as seen by the benchmark harness.
-///
-/// These events are produced by a backend transport (e.g., gossip)
-/// and consumed by the receiver loop to update metrics.
+//
+// These events are produced by a backend transport (e.g., gossip)
+// and consumed by the receiver loop to update metrics.
 #[derive(Debug, Clone)]
 pub enum TransportEvent {
     /// A data message was received.
-    Msg(Bytes),
+    ///
+    /// `bytes` is the raw serialized DataMsg payload.
+    /// `ldh` is the last-delivery-hop value (number of overlay hops) if known.
+    Msg {
+        bytes: Bytes,
+        ldh: Option<u16>,
+    },
     /// The transport reported that it lagged behind (buffer overrun / dropped events).
     Lagged,
     /// A neighbor/peer disconnected.
@@ -40,6 +46,7 @@ pub enum TransportEvent {
     /// A neighbor/peer reconnected or became reachable again.
     Reconnect,
 }
+
 
 /// One structured log line written as JSONL.
 ///
@@ -57,9 +64,14 @@ pub struct LogEvent<'a> {
     pub event: &'a str,
     /// Optional sequence number (present for send/recv events).
     pub seq: Option<u64>,
+    /// Optional end-to-end latency in milliseconds (for recv events).
+    pub lat_ms: Option<u64>,
+    /// Optional last-delivery-hop (overlay hop count) at the receiver.
+    pub ldh: Option<u16>,
     /// Additional structured metadata.
     pub extra: serde_json::Value,
 }
+
 
 /// Simple JSONL writer for benchmark logs.
 ///
@@ -101,6 +113,9 @@ pub struct Stats {
     pub lagged_events: u64,
     lats: Vec<u64>,
 
+    // LDH (Last Delivery Hop)
+    ldhs: Vec<u64>,
+
     // expected total messages
     pub total_expected: u64,
 
@@ -120,6 +135,7 @@ pub struct Stats {
     waiting_first_after_reconnect: bool,
     reconnect_time_ms: Vec<u64>,
 }
+
 
 /// Final summarized metrics for one receiver run.
 #[derive(Debug, Clone, Serialize)]
@@ -143,6 +159,13 @@ pub struct Summary {
     pub lat_p99: Option<u64>,
     pub lat_max: Option<u64>,
 
+    // LDH (overlay hop counts)
+    pub ldh_min: Option<u64>,
+    pub ldh_p50: Option<u64>,
+    pub ldh_p90: Option<u64>,
+    pub ldh_p99: Option<u64>,
+    pub ldh_max: Option<u64>,
+
     // convergence time
     pub convergence_time_ms: Option<u64>,
 
@@ -162,9 +185,13 @@ pub struct Summary {
     pub timed_out_no_data: bool,
 }
 
+
 impl Stats {
     /// Record a successfully decoded DataMsg and update all relevant metrics.
-    pub fn record(&mut self, message: &DataMsg) {
+    ///
+    /// `ldh` is the last-delivery-hop value (if known),
+    /// `recv_ts_ms` is the local receive timestamp in ms.
+    pub fn record(&mut self, message: &DataMsg, ldh: Option<u16>, recv_ts_ms: u64) {
         // Track expected total for this test (monotonic max in case of reordering).
         self.total_expected = self.total_expected.max(message.total);
         // Count every received message, including duplicates.
@@ -183,16 +210,20 @@ impl Stats {
         }
 
         // End-to-end latency based on sender timestamp.
-        let now = now_ms();
-        let lat = now.saturating_sub(message.sent_ms);
+        let lat = recv_ts_ms.saturating_sub(message.sent_ms);
         self.lats.push(lat);
+
+        // LDH sample (if known).
+        if let Some(h) = ldh {
+            self.ldhs.push(h as u64);
+        }
 
         // Track first send time and last receive time for convergence.
         self.first_sent_ms = Some(
             self.first_sent_ms
                 .map_or(message.sent_ms, |m| m.min(message.sent_ms)),
         );
-        self.last_recv_ts_ms = Some(now);
+        self.last_recv_ts_ms = Some(recv_ts_ms);
 
         // If we have seen all expected messages, compute convergence time once.
         if self.convergence_time_ms.is_none()
@@ -209,7 +240,7 @@ impl Stats {
         // measure time since disconnect.
         if self.waiting_first_after_reconnect {
             if let Some(disc) = self.last_disconnect_ts {
-                let rt = now.saturating_sub(disc);
+                let rt = recv_ts_ms.saturating_sub(disc);
                 self.reconnect_time_ms.push(rt);
             }
             self.waiting_first_after_reconnect = false;
@@ -279,6 +310,8 @@ impl Stats {
     pub fn summarize(&mut self) -> Summary {
         // latencies
         self.lats.sort_unstable();
+        // LDH samples
+        self.ldhs.sort_unstable();
 
         // delivery
         let received_unique = self.seen.len() as u64;
@@ -311,7 +344,7 @@ impl Stats {
             None
         };
 
-        // reconnet times
+        // reconnect times
         let mut rts = self.reconnect_time_ms.clone();
         rts.sort_unstable();
 
@@ -334,6 +367,13 @@ impl Stats {
             lat_p90: Self::quantil(&self.lats, 0.90),
             lat_p99: Self::quantil(&self.lats, 0.99),
             lat_max: self.lats.last().copied(),
+
+            // LDH
+            ldh_min: self.ldhs.first().copied(),
+            ldh_p50: Self::quantil(&self.ldhs, 0.50),
+            ldh_p90: Self::quantil(&self.ldhs, 0.90),
+            ldh_p99: Self::quantil(&self.ldhs, 0.99),
+            ldh_max: self.ldhs.last().copied(),
 
             // CT
             convergence_time_ms: self.convergence_time_ms,
@@ -359,3 +399,4 @@ impl Stats {
         }
     }
 }
+

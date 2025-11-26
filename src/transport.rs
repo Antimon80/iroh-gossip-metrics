@@ -6,6 +6,7 @@ use async_trait::async_trait;
 use bytes::Bytes;
 use iroh::NodeId;
 use iroh::{Endpoint, RelayMode, SecretKey, protocol::Router};
+use iroh_gossip::proto::DeliveryScope;
 use iroh_gossip::{ALPN, api::Event, net::Gossip, proto::TopicId};
 use postcard;
 use rand::RngCore;
@@ -138,7 +139,7 @@ impl IrohGossip {
             TopicId::from_bytes(rnd)
         };
 
-        // Parse bootstrap NodeIDs (relay mode only)
+        // Parse bootstrap NodeIDs
         let node_ids: Vec<NodeId> = bootstrap
             .into_iter()
             .filter_map(|b| b.parse::<NodeId>().ok())
@@ -151,10 +152,7 @@ impl IrohGossip {
         // -------------------------------------------------------------
         // 3) subscribe_and_join MUST NOT HANG → wrap in timeout
         // -------------------------------------------------------------
-        let join_timeout = match discovery {
-            Discovery::Direct => Duration::from_secs(5),
-            Discovery::Relay => Duration::from_secs(30),
-        };
+        let join_timeout = Duration::from_secs(60);
 
         let join_start = now_ms();
 
@@ -203,10 +201,24 @@ impl IrohGossip {
                     while let Some(item) = receiver.next().await {
                         match item {
                             Ok(Event::Received(m)) => {
+                                // Extract LDH from DeliveryScope without importing Round.
+                                let ldh = match m.scope {
+                                    DeliveryScope::Swarm(round) => {
+                                        // Use serde_json to convert Round -> u16
+                                        let v = serde_json::to_value(&round).unwrap();
+                                        Some(v.as_u64().unwrap_or(0) as u16)
+                                    }
+                                    DeliveryScope::Neighbors => None,
+                                };
+
                                 let _ = ev_tx
-                                    .send(Ok(TransportEvent::Msg(Bytes::from(m.content))))
+                                    .send(Ok(TransportEvent::Msg {
+                                        bytes: Bytes::from(m.content),
+                                        ldh,
+                                    }))
                                     .await;
                             }
+
                             Ok(Event::Lagged) => {
                                 let _ = ev_tx.send(Ok(TransportEvent::Lagged)).await;
                             }
@@ -331,6 +343,8 @@ pub async fn run_sender<T: Transport>(
             peer_id: &transport.id(),
             event: "send",
             seq: Some(seq),
+            lat_ms: None,
+            ldh: None,
             extra: serde_json::json!({"total": test_total}),
         })?;
 
@@ -376,6 +390,8 @@ pub async fn run_receiver<T: Transport>(
             peer_id: &transport.id(),
             event: "no_join",
             seq: None,
+            lat_ms: None,
+            ldh: None,
             extra: serde_json::json!({
                 "join_wait_ms": transport.join_wait_ms(),
             }),
@@ -389,8 +405,10 @@ pub async fn run_receiver<T: Transport>(
 
             event = transport.next() => {
                 match event {
-                    Some(Ok(TransportEvent::Msg(b))) => {
-                        if let Ok(m) = postcard::from_bytes::<DataMsg>(&b) {
+                    Some(Ok(TransportEvent::Msg { bytes, ldh })) => {
+                        let recv_ts = now_ms();
+
+                        if let Ok(m) = postcard::from_bytes::<DataMsg>(&bytes) {
 
                             // First valid DataMsg defines the active test.
                             if current_test.is_none() {
@@ -399,15 +417,19 @@ pub async fn run_receiver<T: Transport>(
 
                             // Only record messages for the active test.
                             if Some(m.test_id) == current_test {
-                                last_valid_ms = now_ms();
-                                stats.record(&m);
+                                last_valid_ms = recv_ts;
+                                stats.record(&m, ldh, recv_ts);
+
+                                let lat_ms = recv_ts.saturating_sub(m.sent_ms);
 
                                 log.write(&LogEvent {
-                                    ts_ms: now_ms(),
+                                    ts_ms: recv_ts,
                                     role: "receiver",
                                     peer_id: &transport.id(),
                                     event: "recv",
                                     seq: Some(m.seq),
+                                    lat_ms: Some(lat_ms),
+                                    ldh,
                                     extra: serde_json::json!({}),
                                 })?;
                             }
@@ -422,6 +444,8 @@ pub async fn run_receiver<T: Transport>(
                             peer_id: &transport.id(),
                             event: "lagged",
                             seq: None,
+                            lat_ms: None,
+                            ldh: None,
                             extra: serde_json::json!({}),
                         })?;
                     }
@@ -440,6 +464,8 @@ pub async fn run_receiver<T: Transport>(
                             peer_id: &transport.id(),
                             event: "neighbor_down",
                             seq: None,
+                            lat_ms: None,
+                            ldh: None,
                             extra: serde_json::json!({
                                 "connected": connected_peers,
                                 "reachable": connected_peers
@@ -459,6 +485,8 @@ pub async fn run_receiver<T: Transport>(
                             peer_id: &transport.id(),
                             event: "neighbor_up",
                             seq: None,
+                            lat_ms: None,
+                            ldh: None,
                             extra: serde_json::json!({
                                 "connected": connected_peers,
                                 "reachable": connected_peers
