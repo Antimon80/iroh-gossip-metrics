@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 set -euo pipefail
 
 # UC2: all peers in same LAN, Relay discovery
@@ -107,6 +108,7 @@ for i in $(seq 2 "$PEERS"); do
     2> "$RERR" &
   
   RECV_PIDS+=("$!")
+  sleep 0.2
 done
 
 sleep 3   # relay discovery kann etwas länger brauchen

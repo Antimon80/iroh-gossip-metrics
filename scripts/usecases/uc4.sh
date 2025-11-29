@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 set -euo pipefail
 
 # UC4: Relay-assisted discovery, degraded network (delay/loss)
@@ -111,6 +112,7 @@ for i in $(seq 2 "$PEERS"); do
     2> "$RERR" &
 
   RECV_PIDS+=("$!")
+  sleep 0.2
 done
 
 sleep 3   # relay discovery can take a moment

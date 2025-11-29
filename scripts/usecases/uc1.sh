@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 set -euo pipefail
 
 # UC1: all peers in same LAN, Direct discovery (mDNS)
@@ -105,9 +106,10 @@ for i in $(seq 2 "$PEERS"); do
     2> "$RERR" &
   
   RECV_PIDS+=("$!")
+  sleep 0.5
 done
 
-sleep 2
+sleep 3
 
 #############################################
 # 4) START SENDER IN PEER 1
