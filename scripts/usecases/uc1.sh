@@ -1,4 +1,3 @@
-#!/usr/bin/env bash
 set -euo pipefail
 
 # UC1: all peers in same LAN, Direct discovery (mDNS)

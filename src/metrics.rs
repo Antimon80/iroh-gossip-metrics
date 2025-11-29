@@ -35,10 +35,7 @@ pub enum TransportEvent {
     ///
     /// `bytes` is the raw serialized DataMsg payload.
     /// `ldh` is the last-delivery-hop value (number of overlay hops) if known.
-    Msg {
-        bytes: Bytes,
-        ldh: Option<u16>,
-    },
+    Msg { bytes: Bytes, ldh: Option<u16> },
     /// The transport reported that it lagged behind (buffer overrun / dropped events).
     Lagged,
     /// A neighbor/peer disconnected.
@@ -46,7 +43,6 @@ pub enum TransportEvent {
     /// A neighbor/peer reconnected or became reachable again.
     Reconnect,
 }
-
 
 /// One structured log line written as JSONL.
 ///
@@ -71,7 +67,6 @@ pub struct LogEvent<'a> {
     /// Additional structured metadata.
     pub extra: serde_json::Value,
 }
-
 
 /// Simple JSONL writer for benchmark logs.
 ///
@@ -134,8 +129,13 @@ pub struct Stats {
     last_disconnect_ts: Option<u64>,
     waiting_first_after_reconnect: bool,
     reconnect_time_ms: Vec<u64>,
-}
 
+    // counting disconnects/reconnects
+    pub disconnect_events: u64,
+    pub reconnect_events: u64,
+    pub reconnect_samples: u64,
+    is_disconnected: bool,
+}
 
 /// Final summarized metrics for one receiver run.
 #[derive(Debug, Clone, Serialize)]
@@ -178,13 +178,17 @@ pub struct Summary {
     pub rt_p90_ms: Option<u64>,
     pub rt_max_ms: Option<u64>,
 
+    // disconnect/reconnect counts
+    pub disconnect_events: u64,
+    pub reconnect_events: u64,
+    pub reconnect_samples: u64,
+
     // startup/termination flags
     pub joined: bool,
     pub join_wait_ms: u64,
     pub saw_test: bool,
     pub timed_out_no_data: bool,
 }
-
 
 impl Stats {
     /// Record a successfully decoded DataMsg and update all relevant metrics.
@@ -242,6 +246,7 @@ impl Stats {
             if let Some(disc) = self.last_disconnect_ts {
                 let rt = recv_ts_ms.saturating_sub(disc);
                 self.reconnect_time_ms.push(rt);
+                self.reconnect_samples += 1;
             }
             self.waiting_first_after_reconnect = false;
         }
@@ -279,6 +284,11 @@ impl Stats {
     pub fn note_disconnect(&mut self, ts_ms: u64) {
         self.last_disconnect_ts = Some(ts_ms);
         self.waiting_first_after_reconnect = false;
+
+        if !self.is_disconnected {
+            self.disconnect_events += 1;
+            self.is_disconnected = true;
+        }
     }
 
     /// Note that a reconnect happened at the given timestamp.
@@ -286,8 +296,10 @@ impl Stats {
     /// We only compute reconnect time once the first message arrives after reconnect,
     /// because that's when the system is effectively usable again.
     pub fn note_reconnect(&mut self) {
-        if self.last_disconnect_ts.is_some() {
+        if self.last_disconnect_ts.is_some() && self.is_disconnected {
             self.waiting_first_after_reconnect = true;
+            self.reconnect_events += 1;
+            self.is_disconnected = false;
         } else {
             self.waiting_first_after_reconnect = false;
         }
@@ -391,6 +403,11 @@ impl Stats {
             rt_p90_ms: Self::quantil(&rts, 0.90),
             rt_max_ms: rts.last().copied(),
 
+            // disconnect/reconnect counts
+            disconnect_events: self.disconnect_events,
+            reconnect_events: self.reconnect_events,
+            reconnect_samples: rts.len() as u64,
+
             // startup/termination flags (defaults)
             joined: false,
             join_wait_ms: 0,
@@ -399,4 +416,3 @@ impl Stats {
         }
     }
 }
-

@@ -1,4 +1,3 @@
-#!/usr/bin/env bash
 set -euo pipefail
 
 # UC3: Direct discovery, degraded network (delay/loss)
@@ -17,7 +16,7 @@ SIZE="$4"
 DISCOVERY="${5:-DIRECT}"
 
 TOPIC="${TOPIC:-lab}"
-BASELOG="${LOGDIR:-logs/uc3-direct-degraded}"
+BASELOG="${LOGDIR:-logs/uc3}"
 
 # Create parameter-tagged run directory
 TS=$(date +"%Y%m%d-%H%M%S")

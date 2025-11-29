@@ -1,4 +1,3 @@
-#!/usr/bin/env bash
 set -euo pipefail
 
 # UC4: Relay-assisted discovery, degraded network (delay/loss)
@@ -17,7 +16,7 @@ SIZE="$4"
 DISCOVERY="${5:-RELAY}"
 
 TOPIC="${TOPIC:-lab}"
-BASELOG="${LOGDIR:-logs/uc4-relay-degraded}"
+BASELOG="${LOGDIR:-logs/uc4}"
 
 # Create parameter-tagged run directory
 TS=$(date +"%Y%m%d-%H%M%S")

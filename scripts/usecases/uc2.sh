@@ -1,4 +1,3 @@
-#!/usr/bin/env bash
 set -euo pipefail
 
 # UC2: all peers in same LAN, Relay discovery
