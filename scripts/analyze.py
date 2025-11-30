@@ -41,7 +41,7 @@ def load_summary_file(path: Path):
 
     dec = json.JSONDecoder()
 
-    # Falls vor dem JSON noch Log-Zeug steht, zum ersten '{' springen
+    # In case there is logging before the JSON, jump to the first '{'
     start = text.find("{")
     if start == -1:
         print(f"[warn] No '{{' found in {path}, skipping this peer")
@@ -56,11 +56,6 @@ def load_summary_file(path: Path):
     if not isinstance(obj, dict):
         print(f"[warn] Top-level JSON in {path} is not an object, skipping")
         return None
-
-    # Optional: Wenn noch was danach steht, ignorieren wir es einfach
-    # rest = text[start + end_idx:].strip()
-    # if rest:
-    #     print(f"[info] Ignoring trailing non-JSON content in {path}")
 
     return obj
 
@@ -79,7 +74,7 @@ def load_runs(base_dir: Path, uc_label: str) -> pd.DataFrame:
         for f in files:
             s = load_summary_file(f)
             if s is None:
-                # kaputtes/leerens File -> Peer ignorieren
+                # broken/empty file -> ignore this peer
                 continue
 
             s["peer"] = f.stem.replace("-summary", "")
@@ -248,7 +243,7 @@ def main():
 
         uc_specs.append((uc_label, uc_name, uc_path))
 
-    # Unterordner aus den UC-Namen, z.B. "uc1_uc2_uc3_uc4"
+    # Subfolder from UC names, e.g. "uc1_uc2_uc3_uc4"
     combo_name = "_".join(sorted({name for _, name, _ in uc_specs}))
     out_dir = Path(args.out) / combo_name
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -270,7 +265,7 @@ def main():
     # --------------------------------------------
     extra_metrics: list[str] = []
     if "joined" in peer_df.columns:
-        # True/False -> 1/0 für Aggregation
+        # True/False -> 1/0 for aggregation
         joined_numeric = peer_df["joined"].astype(int)
         peer_df = peer_df.assign(joined_numeric=joined_numeric)
 
@@ -324,6 +319,10 @@ def main():
         "rt_p50_ms",
         "rt_p90_ms",
         "rt_max_ms",
+        # reconnect counters (new/extended)
+        "disconnect_events",
+        "reconnect_events",
+        "reconnect_samples",
         # startup / join
         "join_wait_ms",
     ]
@@ -338,7 +337,7 @@ def main():
     # --------------------------------------------
     run_df = per_run_means(peer_df, metrics)
 
-    # Merge Run-Level Join-Stats, falls vorhanden
+    # Merge run-level join stats, if available
     if run_counts is not None:
         run_df = run_df.merge(run_counts, on=["uc", "run"], how="left")
 
@@ -394,7 +393,16 @@ def main():
         out_dir / "reconnect_time_avg.png",
     )
 
-    # neu: nicht gejointe Peers
+    # average number of reconnect samples per run/UC
+    barplot_metric(
+        run_df,
+        "reconnect_samples",
+        "Reconnect Samples per Run (mean ± std)",
+        "# reconnect samples",
+        out_dir / "reconnect_samples.png",
+    )
+
+    # non-joined peers
     if "not_joined_peers" in run_df.columns:
         barplot_metric(
             run_df,

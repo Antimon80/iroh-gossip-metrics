@@ -12,10 +12,10 @@ set -euo pipefail
 UC="${1:-uc1}"
 shift || true
 
-PEERS="${1:-50}"
-NUM="${2:-2000}"
-RATE="${3:-10}"
-SIZE="${4:-256}"
+PEERS="${1:-50}"    # total peers
+NUM="${2:-2000}"    # messages per test
+RATE="${3:-10}"     # messages per second
+SIZE="${4:-256}"    # payload size (bytes)
 REPEAT="${5:-1}"
 
 for run in $(seq 1 "$REPEAT"); do
