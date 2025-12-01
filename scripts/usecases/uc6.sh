@@ -3,9 +3,14 @@ set -euo pipefail
 
 # UC6: Churn and Recovery (Relay discovery)
 #
-# Same basic setup as UC2 (all peers in same LAN, relay-assisted
-# discovery via a single bootstrap peer), but with an additional
-# churn phase where a subset of peers leave and later rejoin.
+# Same basic setup as UC2:
+# - all peers in the same LAN
+# - relay-assisted discovery via a single bootstrap peer (peer1)
+#
+# Additionally:
+# - after CHURN_START seconds, a fixed random subset of non-bootstrap peers
+#   (from 2..PEERS) is killed ("churned")
+# - after CHURN_DOWN seconds, exactly this subset of peers rejoins
 #
 # By default this uses a clean LAN (netem-none). To emulate a
 # degraded relay network, override:
@@ -26,14 +31,16 @@ DISCOVERY="${5:-RELAY}"
 
 TOPIC="${TOPIC:-lab}"
 
-# group logs by peer count
-BASELOG="${LOGDIR:-logs/uc6}/p${PEERS}"
-
 # Churn parameters
 # Time after sender start until churn begins (seconds)
 CHURN_START="${CHURN_START:-5}"
 # How long churn peers stay offline before they rejoin (seconds)
 CHURN_DOWN="${CHURN_DOWN:-10}"
+# Number of non-bootstrap peers to churn (0 = choose default)
+CHURN_COUNT="${CHURN_COUNT:-0}"
+
+# Group logs by peer count
+BASELOG="${LOGDIR:-logs/uc6}/p${PEERS}"
 
 # Create parameter-tagged run directory
 TS=$(date +"%Y%m%d-%H%M%S")
@@ -47,7 +54,8 @@ mkdir -p "$LOGDIR"
 
 echo "== UC6 Relay Churn & Recovery with $PEERS peers =="
 echo "SCENARIO=$SCENARIO NUM=$NUM RATE=$RATE SIZE=$SIZE TOPIC=$TOPIC"
-echo "CHURN_START=${CHURN_START}s CHURN_DOWN=${CHURN_DOWN}s"
+echo "CHURN_START=${CHURN_START}s CHURN_DOWN=${CHURN_DOWN}s CHURN_COUNT=${CHURN_COUNT:-auto}"
+echo "LOGDIR=$LOGDIR"
 echo
 
 cleanup_netns || true
@@ -96,6 +104,7 @@ for _ in {1..80}; do
     NODE_ID="$(grep -m1 'node_id=' "$BOOT_RERR" | sed -E 's/.*node_id=([[:alnum:]]+).*/\1/')"
     break
   fi
+  sleep 0.25
 done
 if [[ -z "$NODE_ID" ]]; then
   echo "ERROR: Could not detect bootstrap node_id" >&2
@@ -148,16 +157,37 @@ run_in_ns 1 "$BIN" \
 SENDER_PID=$!
 
 #############################################
-# 5) CHURN PHASE: DISCONNECT + REJOIN (PEERS 2..PEERS)
+# 5) CHURN PHASE: DISCONNECT + REJOIN (RANDOM SUBSET OF PEERS 2..PEERS)
 #############################################
 
 if (( PEERS > 1 )); then
-  echo "== Churn phase: peers 2..$PEERS =="
+  # Determine how many peers to churn if not explicitly set
+  # Default: half of the non-bootstrap peers (rounded up), but at least 1
+  NON_BOOTSTRAP=$((PEERS - 1))
+
+  if (( CHURN_COUNT <= 0 )); then
+    CHURN_COUNT=$(((NON_BOOTSTRAP + 1) / 2))
+  fi
+
+  # Clamp CHURN_COUNT to [1, NON_BOOTSTRAP]
+  if (( CHURN_COUNT < 1 )); then
+    CHURN_COUNT=1
+  fi
+  if (( CHURN_COUNT > NON_BOOTSTRAP )); then
+    CHURN_COUNT=$NON_BOOTSTRAP
+  fi
+
+  # Randomly select CHURN_COUNT distinct peers from 2..PEERS.
+  # This subset is fixed for kill + rejoin.
+  mapfile -t CHURN_PEERS < <(seq 2 "$PEERS" | shuf -n "$CHURN_COUNT" | sort -n)
+
+  echo "== Churn phase: random subset of non-bootstrap peers =="
+  echo "   Selected churn peers: ${CHURN_PEERS[*]}"
   echo "== Waiting ${CHURN_START}s before starting churn =="
   sleep "$CHURN_START"
 
-  echo "== Churn: killing relay receivers in peers 2..$PEERS =="
-  for i in $(seq 2 "$PEERS"); do
+  echo "== Churn: killing relay receivers in peers ${CHURN_PEERS[*]} =="
+  for i in "${CHURN_PEERS[@]}"; do
     pid=${RECV_PIDS[$i]:-}
     if [[ -n "${pid:-}" ]]; then
       echo "   -> kill receiver in peer$i (pid=$pid)"
@@ -169,8 +199,8 @@ if (( PEERS > 1 )); then
   echo "== Peers offline for ${CHURN_DOWN}s =="
   sleep "$CHURN_DOWN"
 
-  echo "== Rejoin: restart receivers in churned peers 2..$PEERS =="
-  for i in $(seq 2 "$PEERS"); do
+  echo "== Rejoin: restart receivers in churned peers ${CHURN_PEERS[*]} =="
+  for i in "${CHURN_PEERS[@]}"; do
     RLOG="$LOGDIR/peer${i}-recv.jsonl"
     RERR="$LOGDIR/peer${i}-recv.stderr"
     RSUM="$LOGDIR/peer${i}-summary.json"

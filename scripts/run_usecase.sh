@@ -24,7 +24,7 @@ for run in $(seq 1 "$REPEAT"); do
   echo "===================================="
 
   case "$UC" in
-    uc1|uc2|uc3|uc4)
+    uc1|uc2|uc3|uc4|uc5|uc6)
       scripts/usecases/${UC}.sh "$PEERS" "$NUM" "$RATE" "$SIZE"
       ;;
     *)
