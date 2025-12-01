@@ -44,6 +44,7 @@ __pycache__/
 logs/**
 !logs/**/
 !logs/**/*-summary.json
+!logs/**/send.json
 
 #####################
 # Editor / IDE files
