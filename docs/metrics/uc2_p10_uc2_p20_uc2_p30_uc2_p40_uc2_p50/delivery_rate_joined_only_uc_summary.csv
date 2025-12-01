@@ -1,0 +1,6 @@
+uc,total_runs,mean_delivery_rate,std_delivery_rate,min_rate,max_rate
+UC2_P10,10,1.0,0.0,1.0,1.0
+UC2_P20,10,1.0,0.0,1.0,1.0
+UC2_P30,10,1.0,0.0,1.0,1.0
+UC2_P40,10,1.0,0.0,1.0,1.0
+UC2_P50,10,1.0,0.0,1.0,1.0
