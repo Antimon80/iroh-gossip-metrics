@@ -29,7 +29,9 @@ CHURN_START="${CHURN_START:-5}"
 CHURN_DOWN="${CHURN_DOWN:-10}"
 
 TOPIC="${TOPIC:-lab}"
-BASELOG="${LOGDIR:-logs/uc5}"
+
+# group logs by peer count
+BASELOG="${LOGDIR:-logs/uc5}/p${PEERS}"
 
 # Create parameter-tagged run directory
 TS=$(date +"%Y%m%d-%H%M%S")
@@ -90,7 +92,6 @@ for i in $(seq 1 "$BOOTSTRAP_COUNT"); do
       NODE_ID="$(grep -m1 'node_id=' "$BOOT_RERR" | sed -E 's/.*node_id=([[:alnum:]]+).*/\1/')"
       break
     fi
-    sleep 0.1
   done
 
   if [[ -z "$NODE_ID" ]]; then
@@ -104,9 +105,6 @@ for i in $(seq 1 "$BOOTSTRAP_COUNT"); do
   fi
 
   BOOTSTRAP_IDS+=("$NODE_ID")
-
-  # Small pause to let gossip stabilize a bit per bootstrap peer
-  sleep 0.5
 done
 
 # Build comma-separated bootstrap list for CLI (e.g. "id1,id2,id3,id4,id5")
@@ -138,9 +136,6 @@ if (( PEERS > BOOTSTRAP_COUNT )); then
     RECV_PIDS[$i]=$!
   done
 fi
-
-# Give the overlay some time to converge before sending
-sleep 3
 
 #############################################
 # 3) START SENDER IN PEER 1 (FOREGROUND WORKLOAD)
@@ -219,8 +214,6 @@ for pid in "${RECV_PIDS[@]}"; do
     wait "$pid" || true
   fi
 done
-
-sleep 1   # short settle time
 
 #############################################
 # 6) CLEANUP

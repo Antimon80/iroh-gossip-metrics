@@ -25,7 +25,9 @@ SIZE="$4"
 DISCOVERY="${5:-RELAY}"
 
 TOPIC="${TOPIC:-lab}"
-BASELOG="${LOGDIR:-logs/uc6}"
+
+# group logs by peer count
+BASELOG="${LOGDIR:-logs/uc6}/p${PEERS}"
 
 # Churn parameters
 # Time after sender start until churn begins (seconds)
@@ -94,7 +96,6 @@ for _ in {1..80}; do
     NODE_ID="$(grep -m1 'node_id=' "$BOOT_RERR" | sed -E 's/.*node_id=([[:alnum:]]+).*/\1/')"
     break
   fi
-  sleep 0.1
 done
 if [[ -z "$NODE_ID" ]]; then
   echo "ERROR: Could not detect bootstrap node_id" >&2
@@ -103,8 +104,6 @@ if [[ -z "$NODE_ID" ]]; then
   exit 1
 fi
 echo "== Bootstrap node_id: $NODE_ID =="
-
-sleep 0.5
 
 #############################################
 # 3) START REMAINING RECEIVERS (PEER 2..PEERS)
@@ -130,9 +129,6 @@ if (( PEERS > 1 )); then
     RECV_PIDS[$i]=$!
   done
 fi
-
-# Relay discovery can take a bit longer
-sleep 3
 
 #############################################
 # 4) START SENDER IN PEER 1 (BACKGROUND)
@@ -209,8 +205,6 @@ for pid in "${RECV_PIDS[@]}"; do
     wait "$pid" || true
   fi
 done
-
-sleep 1   # short settle time
 
 #############################################
 # 7) CLEANUP

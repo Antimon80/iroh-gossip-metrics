@@ -15,7 +15,9 @@ SIZE="$4"
 DISCOVERY="${5:-RELAY}"
 
 TOPIC="${TOPIC:-lab}"
-BASELOG="${LOGDIR:-logs/uc2}"
+
+# group logs by peer count
+BASELOG="${LOGDIR:-logs/uc2}/p${PEERS}"
 
 # Create parameter-tagged run directory
 TS=$(date +"%Y%m%d-%H%M%S")
@@ -73,7 +75,6 @@ for _ in {1..80}; do
     NODE_ID="$(grep -m1 'node_id=' "$BOOT_RERR" | sed -E 's/.*node_id=([[:alnum:]]+).*/\1/')"
     break
   fi
-  sleep 0.1
 done
 if [[ -z "$NODE_ID" ]]; then
   echo "ERROR: Could not detect bootstrap node_id" >&2
@@ -110,7 +111,7 @@ for i in $(seq 2 "$PEERS"); do
   RECV_PIDS+=("$!")
 done
 
-sleep 3   # relay discovery kann etwas länger brauchen
+sleep 3   # relay discovery may take a while
 
 #############################################
 # 4) START SENDER IN PEER 1
@@ -136,8 +137,6 @@ echo "== Waiting for ALL receivers to finish =="
 for pid in "${RECV_PIDS[@]}"; do
   wait "$pid" || true
 done
-
-sleep 1   # short settle time
 
 #############################################
 # 6) CLEANUP
