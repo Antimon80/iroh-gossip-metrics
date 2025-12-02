@@ -5,6 +5,7 @@ set -euo pipefail
 
 PEERS="${PEERS:-20}"
 DELAY="${DELAY:-10ms}"
+JITTER="${JITTER:-5ms}"
 
 SUDO=""
 if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
@@ -20,5 +21,5 @@ for i in $(seq 2 "$PEERS"); do
   $SUDO tc qdisc del dev "$DEV" root 2>/dev/null || true
 
   # Add constant delay
-  $SUDO tc qdisc add dev "$DEV" root netem delay "$DELAY"
+  $SUDO tc qdisc add dev "$DEV" root netem delay "$DELAY" "$JITTER" distribution normal
 done
