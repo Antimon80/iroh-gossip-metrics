@@ -1,3 +1,0 @@
-uc,total_runs,mean_delivery_rate,std_delivery_rate,min_rate,max_rate
-UC1_P10,10,0.9897400000000001,0.031549245456728284,0.8999499999999999,1.0
-UC2_P10,10,1.0,0.0,1.0,1.0

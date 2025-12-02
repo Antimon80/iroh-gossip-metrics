@@ -249,7 +249,6 @@ def scatter_metric(run_df: pd.DataFrame, column: str, title: str, ylabel: str, o
     ax.set_xticklabels(ucs, rotation=15)
     ax.set_ylabel(ylabel)
     ax.set_title(title)
-    ax.legend()
 
     fig.tight_layout()
     fig.savefig(out, dpi=200)
@@ -614,20 +613,13 @@ def main():
         out_dir / "reconnect_samples.png",
     )
 
-    # Receiver ratios (joined / saw_test): scatterplots over valid runs
-    scatter_metric(
+    # Receiver ratios (joined): barplots over valid runs
+    barplot_metric(
         valid_run_df,
         "joined",
         "Receiver Join Ratio (valid runs)",
         "fraction of peers",
-        out_dir / "receiver_join_ratio_scatter.png",
-    )
-    scatter_metric(
-        valid_run_df,
-        "saw_test",
-        "Receiver Saw-Test Ratio (valid runs)",
-        "fraction of peers",
-        out_dir / "receiver_saw_test_ratio_scatter.png",
+        out_dir / "receiver_join_ratio.png",
     )
 
     print("[OK] All metrics written to", out_dir.resolve())

@@ -1,3 +1,0 @@
-uc,total_runs,mean_join_wait_ms,std_join_wait_ms,min_ms,max_ms
-UC1_P50,5,5313.724,4198.810499067563,714.64,9855.46
-UC2_P50,10,620.98,403.39148892029607,73.98,1082.78
