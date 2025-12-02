@@ -1,6 +1,6 @@
 uc,sender_fail_rate_percent
 UC4_P10,0.0
 UC4_P20,0.0
-UC4_P30,60.0
-UC4_P40,60.0
-UC4_P50,100.0
+UC4_P30,80.0
+UC4_P40,50.0
+UC4_P50,47.37

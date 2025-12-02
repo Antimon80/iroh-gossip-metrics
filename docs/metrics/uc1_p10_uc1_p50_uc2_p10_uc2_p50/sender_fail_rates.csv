@@ -1,0 +1,5 @@
+uc,sender_fail_rate_percent
+UC1_P10,0.0
+UC1_P50,50.0
+UC2_P10,0.0
+UC2_P50,0.0
