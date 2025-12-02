@@ -174,11 +174,11 @@ def per_run_means(peer_df: pd.DataFrame, cols: list[str]) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 def barplot_metric(run_df: pd.DataFrame, column: str, title: str, ylabel: str, out: Path):
     """
-    Bar plot with one bar per UC, each with its own color.
-    Shows mean ± std error bars.
-    Legend is omitted because UC labels are already shown on the x-axis.
-    """
+    Produce a bar plot with mean ± standard deviation for a single metric.
 
+    Each bar corresponds to one UC. The per-UC statistics are computed from
+    the per-run values. UC labels on the x-axis make a legend redundant.
+    """
     if column not in run_df.columns:
         return
 
@@ -190,14 +190,12 @@ def barplot_metric(run_df: pd.DataFrame, column: str, title: str, ylabel: str, o
     means = stat["mean"].values
     stds = stat["std"].fillna(0).values
 
-    # Matplotlib colormap (tab10 gives 10 visually distinct colors)
     cmap = plt.get_cmap("tab10")
     colors = [cmap(i % 10) for i in range(len(ucs))]
 
     fig, ax = plt.subplots(figsize=(8, 4))
     x = range(len(ucs))
 
-    # Draw one bar per UC with different color
     for i, uc in enumerate(ucs):
         ax.bar(
             i,
@@ -211,9 +209,6 @@ def barplot_metric(run_df: pd.DataFrame, column: str, title: str, ylabel: str, o
     ax.set_xticklabels(ucs, rotation=15)
     ax.set_ylabel(ylabel)
     ax.set_title(title)
-
-    # No legend here (UC names already shown)
-    # ax.legend()  <-- removed
 
     fig.tight_layout()
     fig.savefig(out, dpi=200)
@@ -300,14 +295,13 @@ def _plot_quantiles_generic(run_df: pd.DataFrame,
         means = stat.loc[uc, (slice(None), "mean")].values.astype(float)
         stds = stat.loc[uc, (slice(None), "std")].fillna(0).values.astype(float)
 
-        # Center bars around the group position: e.g. for 3 UCs, offsets are
-        # -width, 0, +width; for 5 UCs they are symmetric around 0, etc.
+        # Center bars around the group position
         offsets = [x + (i - (n_ucs - 1) / 2) * width for x in x_base]
 
         ax.bar(
             offsets,
             means,
-            width=width * 0.9,  # small shrink to leave a tiny gap between bars
+            width=width * 0.9,
             yerr=stds,
             capsize=3,
             label=uc,
@@ -447,7 +441,6 @@ def main():
     # -----------------------------------------------------------------------
 
     # Delivery rate only over receivers that actually joined the mesh.
-    # This ignores peers with joined==0 when computing per-run delivery rates.
     if {"joined", "delivery_rate"}.issubset(peer_df.columns):
         delivery_joined = (
             peer_df[peer_df["joined"] == 1]
@@ -455,16 +448,13 @@ def main():
             .mean()
             .rename(columns={"delivery_rate": "delivery_rate_joined_only"})
         )
-        # Per-run CSV for joined-only delivery rate
         delivery_joined.to_csv(
             out_dir / "delivery_rate_joined_only_per_run.csv",
             index=False,
         )
-        # Attach the joined-only metric to the run-level dataframe
         run_df = run_df.merge(delivery_joined, on=["uc", "run"], how="left")
-    
+
     # Reconnect samples: average over all peers that joined the mesh.
-    # Peers with joined == 0 are excluded; joined peers with 0 samples are included.
     if {"joined", "reconnect_samples"}.issubset(peer_df.columns):
         rs_joined = (
             peer_df[peer_df["joined"] == 1]
@@ -477,51 +467,23 @@ def main():
             index=False,
         )
         run_df = run_df.merge(rs_joined, on=["uc", "run"], how="left")
-    
-    # Join wait time: only for peers that successfully joined.
-    if {"joined", "join_wait_ms"}.issubset(peer_df.columns):
-        jw_joined = (
-            peer_df[peer_df["joined"] == 1]
-            .groupby(["uc", "run"], as_index=False)["join_wait_ms"]
-            .mean()
-            .rename(columns={"join_wait_ms": "join_wait_ms_joined_only"})
-        )
-
-        # Write per-run table
-        jw_joined.to_csv(
-            out_dir / "join_wait_ms_joined_only_per_run.csv",
-            index=False,
-        )
-
-        # Add to run_df
-        run_df = run_df.merge(jw_joined, on=["uc", "run"], how="left")
-
-        # UC-level summary
-        jw_summary = jw_joined.groupby("uc")["join_wait_ms_joined_only"].agg(
-            total_runs="count",
-            mean_join_wait_ms="mean",
-            std_join_wait_ms="std",
-            min_ms="min",
-            max_ms="max",
-        ).reset_index()
-
-        jw_summary.to_csv(
-            out_dir / "join_wait_ms_joined_only_uc_summary.csv",
-            index=False,
-        )
 
     # Per-run CSV for reconnect time
     if "rt_avg_ms" in run_df.columns:
         reconnect_per_run = run_df[["uc", "run", "rt_avg_ms"]]
         reconnect_per_run.to_csv(out_dir / "reconnect_time_per_run.csv", index=False)
 
-    # Per-run CSV for peer reachability ratio (all runs)
+    # Per-run CSV for peer reachability ratio
     if "pr_avg_ratio" in run_df.columns:
         pr_per_run = run_df[["uc", "run", "pr_avg_ratio"]]
         pr_per_run.to_csv(out_dir / "peer_reachability_per_run.csv", index=False)
 
+    # Per-run CSV for out-of-order events (mean across peers)
+    if "out_of_order" in run_df.columns:
+        ooo_per_run = run_df[["uc", "run", "out_of_order"]]
+        ooo_per_run.to_csv(out_dir / "out_of_order_per_run.csv", index=False)
+
     # Filter to valid runs where the sender actually joined.
-    # These are the runs we want to use for receiver ratios.
     valid_run_df = run_df[run_df["sender_joined"] == 1].copy()
 
     # Per-run CSV for receiver ratios (joined / saw_test), valid runs only
@@ -534,7 +496,6 @@ def main():
             index=False,
         )
 
-        # UC-level summary table for receiver ratios
         runs_all = run_df.groupby("uc")["run"].nunique().rename("total_runs")
         runs_valid = valid_run_df.groupby("uc")["run"].nunique().rename("valid_runs")
 
@@ -559,10 +520,9 @@ def main():
         )
 
         summary.to_csv(out_dir / "receiver_ratios_uc_summary.csv", index=False)
-    
-    # UC-level summary for delivery rate (joined receivers only, valid runs only).
+
+    # UC-level summary for delivery rate (joined receivers only, valid runs only)
     if "delivery_rate_joined_only" in run_df.columns:
-        # Restrict to runs where the sender actually joined and the metric is present
         dr_valid = valid_run_df[["uc", "run", "delivery_rate_joined_only"]].dropna()
 
         dr_summary = dr_valid.groupby("uc")["delivery_rate_joined_only"].agg(
@@ -577,24 +537,21 @@ def main():
             out_dir / "delivery_rate_joined_only_uc_summary.csv",
             index=False,
         )
-    
+
     # Convergence time tables
     if "convergence_time_s" in run_df.columns:
-        # 1) Per-run table
         conv_per_run = run_df[["uc", "run", "convergence_time_ms", "convergence_time_s"]]
         conv_per_run.to_csv(out_dir / "convergence_time_per_run.csv", index=False)
 
-        # 2) UC-level summary
         conv_summary = run_df.groupby("uc")["convergence_time_s"].agg(
             total_runs="count",
             mean_convergence_s="mean",
             std_convergence_s="std",
             min_s="min",
-            max_s="max"
+            max_s="max",
         ).reset_index()
 
         conv_summary.to_csv(out_dir / "convergence_time_uc_summary.csv", index=False)
-
 
     # Write the full per-run metrics CSV (including derived columns)
     run_df.to_csv(out_dir / "per_run_means.csv", index=False)
@@ -621,6 +578,10 @@ def main():
     barplot_metric(run_df, "duplicate_rate", "Duplicate Rate", "duplicates",
                    out_dir / "duplicate_rate.png")
 
+    # Out-of-order events: simple bar plot (mean per run)
+    barplot_metric(run_df, "out_of_order", "Out-of-order Events", "count",
+                   out_dir / "out_of_order.png")
+
     # Latency and LDH quantiles: grouped bar plots
     plot_latency_quantiles(run_df, out_dir / "latency_quantiles.png")
     plot_ldh_quantiles(run_df, out_dir / "ldh_quantiles.png")
@@ -637,8 +598,7 @@ def main():
     scatter_metric(run_df, "rt_avg_ms", "Reconnect Time per Run", "ms",
                    out_dir / "reconnect_time_scatter.png")
 
-    # Number of reconnect samples: bar plot.
-    # Prefer the joined-only version (joined==1 and reconnect_samples>0).
+    # Reconnect samples: prefer the joined-only metric
     rs_column = (
         "reconnect_samples_joined_only"
         if "reconnect_samples_joined_only" in run_df.columns
@@ -654,8 +614,7 @@ def main():
         out_dir / "reconnect_samples.png",
     )
 
-    # Receiver ratios (joined / saw_test): scatterplots over valid runs,
-    # all UCs in a single plot (Variant A).
+    # Receiver ratios (joined / saw_test): scatterplots over valid runs
     scatter_metric(
         valid_run_df,
         "joined",
@@ -669,13 +628,6 @@ def main():
         "Receiver Saw-Test Ratio (valid runs)",
         "fraction of peers",
         out_dir / "receiver_saw_test_ratio_scatter.png",
-    )
-    scatter_metric(
-        run_df,
-        "join_wait_ms_joined_only",
-        "Join Wait Time (joined peers only)",
-        "ms",
-        out_dir / "join_wait_ms_scatter.png",
     )
 
     print("[OK] All metrics written to", out_dir.resolve())
