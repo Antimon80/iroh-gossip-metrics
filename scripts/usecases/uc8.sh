@@ -201,7 +201,7 @@ echo "== Waiting for ALL receivers to finish =="
 
 for pid in "${RECV_PIDS[@]}"; do
   wait "$pid" || true
-endone
+done
 
 #############################################
 # 6) CLEANUP

@@ -1,0 +1,3 @@
+uc,avg_joined_ratio,std_joined_ratio,min_joined_ratio,max_joined_ratio,avg_saw_test_ratio,std_saw_test_ratio,min_saw_test_ratio,max_saw_test_ratio,runs_with_full_join,runs_with_any_miss,total_runs,valid_runs
+UC5_P50,1.0,0.0,1.0,1.0,0.9960000000000001,0.008944271909999166,0.98,1.0,5,0,10,5
+UC6_P50,1.0,0.0,1.0,1.0,0.994,0.00966091783079296,0.98,1.0,10,0,10,10
