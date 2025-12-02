@@ -1,26 +1,29 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# UC7: all peers in same LAN, Direct discovery (mDNS)
+# UC10: Relay-assisted discovery, degraded network (delay/loss)
+# same as UC8 but with netem impairments injected on the bridge.
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 source "$ROOT/scripts/netns/common_netns.sh"
+export NETNS_INTERNET=1
 
-SCENARIO="${SCENARIO:-scripts/scenarios/netem-none.sh}"
+# Default: degraded scenario
+SCENARIO="${SCENARIO:-scripts/scenarios/netem-loss30-delay50.sh}"
 PEERS="$1"
 NUM="$2"
 RATE="$3"
 SIZE="$4"
-DISCOVERY="${5:-DIRECT}"
+DISCOVERY="${5:-RELAY}"
 
 TOPIC="${TOPIC:-lab}"
 
 # group logs by peer count
-BASELOG="${LOGDIR:-logs/uc7}/p${PEERS}"
+BASELOG="${LOGDIR:-logs/uc10}/p${PEERS}"
 
 # Create parameter-tagged run directory
 TS=$(date +"%Y%m%d-%H%M%S")
-TAG="uc7_p${PEERS}_m${NUM}_r${RATE}_s${SIZE}_${DISCOVERY}"
+TAG="uc10_p${PEERS}_m${NUM}_r${RATE}_s${SIZE}_${DISCOVERY}"
 RUN_ID="run-${TS}_${TAG}"
 
 LOGDIR="$BASELOG/$RUN_ID"
@@ -28,7 +31,7 @@ BIN="$ROOT/target/release/iroh-gossip-metrics"
 
 mkdir -p "$LOGDIR"
 
-echo "== UC7 Direct LAN with $PEERS peers =="
+echo "== UC10 Relay Degraded with $PEERS peers =="
 echo "SCENARIO=$SCENARIO NUM=$NUM RATE=$RATE SIZE=$SIZE TOPIC=$TOPIC"
 echo "LOGDIR=$LOGDIR"
 echo
@@ -36,11 +39,13 @@ echo
 cleanup_netns || true
 setup_bridge
 setup_namespaces
+enable_internet_for_netns
 
 echo "== Build project =="
 cargo build --release
 
 echo "== Apply scenario on bridge $BR =="
+export PEERS
 bash "$ROOT/$SCENARIO" "$BR"
 
 #############################################
@@ -73,20 +78,21 @@ declare -a BOOT_NODE_IDS
 echo "== Start bootstrap receivers in peers ${BOOTSTRAP_PEERS[*]} =="
 
 for p in "${BOOTSTRAP_PEERS[@]}"; do
-  RLOG="$LOGDIR/peer${p}-recv.jsonl"
-  RERR="$LOGDIR/peer${p}-recv.stderr"
-  RSUM="$LOGDIR/peer${p}-summary.json"
+  BOOT_RLOG="$LOGDIR/peer${p}-recv.jsonl"
+  BOOT_RERR="$LOGDIR/peer${p}-recv.stderr"
+  BOOT_SUM="$LOGDIR/peer${p}-summary.json"
 
-  : > "$RERR"
+  : > "$BOOT_RERR"
 
+  echo "== Start bootstrap receiver in peer$p =="
   run_in_ns "$p" "$BIN" \
     --role receiver \
-    --log "$RLOG" \
-    --idle-report-ms 3000 \
+    --log "$BOOT_RLOG" \
+    --idle-report-ms 12000 \
     --topic-name "$TOPIC" \
-    --discovery direct \
-    1> "$RSUM" \
-    2> "$RERR" &
+    --discovery relay \
+    1> "$BOOT_SUM" \
+    2> "$BOOT_RERR" &
 
   RECV_PIDS+=("$!")
 done
@@ -94,18 +100,17 @@ done
 #############################################
 # 2) EXTRACT NODE_IDs OF ALL BOOTSTRAP PEERS
 #############################################
-
 echo "== Waiting for bootstrap node_ids =="
 
 idx=0
 for p in "${BOOTSTRAP_PEERS[@]}"; do
-  RERR="$LOGDIR/peer${p}-recv.stderr"
+  BOOT_RERR="$LOGDIR/peer${p}-recv.stderr"
   NODE_ID=""
 
   echo "  - waiting for node_id from peer$p ..."
   for _ in {1..80}; do
-    if grep -q "node_id=" "$RERR"; then
-      NODE_ID="$(grep -m1 'node_id=' "$RERR" | sed -E 's/.*node_id=([[:alnum:]]+).*/\1/')"
+    if grep -q "node_id=" "$BOOT_RERR"; then
+      NODE_ID="$(grep -m1 'node_id=' "$BOOT_RERR" | sed -E 's/.*node_id=([[:alnum:]]+).*/\1/')"
       break
     fi
     sleep 0.25
@@ -137,11 +142,12 @@ done
 
 echo "== Bootstrap list: $BOOTSTRAP_LIST =="
 
+sleep 0.5
+
 #############################################
 # 3) START REMAINING RECEIVERS
 #############################################
-
-echo "== Start remaining receivers peer1..peer$PEERS (excluding bootstraps) =="
+echo "== Start receivers peer1..peer$PEERS (excluding bootstraps) =="
 
 for i in $(seq 1 "$PEERS"); do
   # Skip peers that are already started as bootstraps
@@ -163,9 +169,9 @@ for i in $(seq 1 "$PEERS"); do
   run_in_ns "$i" "$BIN" \
     --role receiver \
     --log "$RLOG" \
-    --idle-report-ms 3000 \
+    --idle-report-ms 12000 \
     --topic-name "$TOPIC" \
-    --discovery direct \
+    --discovery relay \
     --bootstrap "$BOOTSTRAP_LIST" \
     1> "$RSUM" \
     2> "$RERR" &
@@ -173,10 +179,11 @@ for i in $(seq 1 "$PEERS"); do
   RECV_PIDS+=("$!")
 done
 
+sleep 3   # relay discovery may take a while
+
 #############################################
 # 4) START SENDER IN PEER 1
 #############################################
-
 SLOG="$LOGDIR/send.jsonl"
 
 echo "== Start sender in peer1 =="
@@ -187,13 +194,12 @@ run_in_ns 1 "$BIN" \
   --rate "$RATE" \
   --size "$SIZE" \
   --topic-name "$TOPIC" \
-  --discovery direct \
+  --discovery relay \
   --bootstrap "$BOOTSTRAP_LIST"
 
 #############################################
 # 5) WAIT FOR ALL RECEIVERS
 #############################################
-
 echo "== Waiting for ALL receivers to finish =="
 
 for pid in "${RECV_PIDS[@]}"; do
@@ -203,11 +209,10 @@ done
 #############################################
 # 6) CLEANUP
 #############################################
-
 echo "== Clear scenario =="
 bash "$ROOT/scripts/scenarios/netem-none.sh" "$BR"
 
 echo "== [netns] cleanup =="
 cleanup_netns
 
-echo "== UC7 done. Logs in $LOGDIR =="
+echo "== UC10 done. Logs in $LOGDIR =="
