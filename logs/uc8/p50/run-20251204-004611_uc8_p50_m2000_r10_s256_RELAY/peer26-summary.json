@@ -1,0 +1,285 @@
+{
+  "received_unique": 2000,
+  "recv_total": 2000,
+  "total_expected": 2000,
+  "delivery_rate": 1.0,
+  "duplicate_rate": 0.0,
+  "duplicates": 0,
+  "out_of_order": 0,
+  "lagged_events": 0,
+  "lat_min": 1,
+  "lat_p50": 2,
+  "lat_p90": 5,
+  "lat_p99": 8,
+  "lat_max": 38,
+  "ldh_min": 4,
+  "ldh_p50": 4,
+  "ldh_p90": 4,
+  "ldh_p99": 4,
+  "ldh_max": 4,
+  "pr_avg_ratio": 1.0,
+  "avg_connected_peers": 1.0025874245884543,
+  "downtime_total_ms": 22,
+  "downtime_periods": 2,
+  "downtime_p50_ms": 12,
+  "downtime_p90_ms": 12,
+  "downtime_max_ms": 12,
+  "neighbour_down": 18,
+  "neighbour_up": 18,
+  "joined": true,
+  "join_wait_ms": 842,
+  "saw_test": true,
+  "timed_out_no_data": false
+}
+[2m2025-12-03T23:50:13.672323Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(53))
+[2m2025-12-03T23:50:13.690623Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.722043Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1112))
+[2m2025-12-03T23:50:13.722389Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.726619Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1113))
+[2m2025-12-03T23:50:13.728619Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.733413Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1114))
+[2m2025-12-03T23:50:13.735282Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.736232Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1115))
+[2m2025-12-03T23:50:13.738992Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.741855Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1116))
+[2m2025-12-03T23:50:13.742739Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.752753Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1117))
+[2m2025-12-03T23:50:13.755668Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.756898Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1118))
+[2m2025-12-03T23:50:13.764303Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.768729Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1119))
+[2m2025-12-03T23:50:13.780397Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.811685Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1120))
+[2m2025-12-03T23:50:13.856743Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.857439Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1121))
+[2m2025-12-03T23:50:13.861098Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.865247Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1122))
+[2m2025-12-03T23:50:13.867700Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.869991Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1123))
+[2m2025-12-03T23:50:13.873354Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.878079Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1124))
+[2m2025-12-03T23:50:13.879152Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.881062Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1125))
+[2m2025-12-03T23:50:13.885020Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.888883Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1126))
+[2m2025-12-03T23:50:13.889698Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.893617Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1127))
+[2m2025-12-03T23:50:13.901686Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.902554Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1128))
+[2m2025-12-03T23:50:13.904733Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.907738Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1129))
+[2m2025-12-03T23:50:13.912951Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.914354Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1130))
+[2m2025-12-03T23:50:13.916653Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.919510Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1131))
+[2m2025-12-03T23:50:13.919971Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.923027Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1132))
+[2m2025-12-03T23:50:13.923936Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.924130Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1133))
+[2m2025-12-03T23:50:13.924327Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.924511Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1134))
+[2m2025-12-03T23:50:13.924677Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.924828Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1135))
+[2m2025-12-03T23:50:13.924991Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.925147Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1136))
+[2m2025-12-03T23:50:13.925315Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.925472Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1137))
+[2m2025-12-03T23:50:13.925636Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.925779Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1138))
+[2m2025-12-03T23:50:13.925931Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.926405Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1139))
+[2m2025-12-03T23:50:13.926562Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.926710Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1140))
+[2m2025-12-03T23:50:13.926851Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.926985Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1141))
+[2m2025-12-03T23:50:13.927170Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.927363Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1142))
+[2m2025-12-03T23:50:13.927566Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.927750Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1143))
+[2m2025-12-03T23:50:13.927933Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.928110Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1144))
+[2m2025-12-03T23:50:13.928318Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.928492Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1145))
+[2m2025-12-03T23:50:13.928696Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.928876Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1146))
+[2m2025-12-03T23:50:13.929066Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.929294Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1147))
+[2m2025-12-03T23:50:13.929570Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.929770Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1148))
+[2m2025-12-03T23:50:13.930072Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.930259Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1149))
+[2m2025-12-03T23:50:13.930608Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.930880Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1150))
+[2m2025-12-03T23:50:13.931162Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.931482Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1151))
+[2m2025-12-03T23:50:13.931708Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.931896Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1152))
+[2m2025-12-03T23:50:13.932087Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.932217Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1153))
+[2m2025-12-03T23:50:13.932411Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.932588Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1154))
+[2m2025-12-03T23:50:13.932771Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.932949Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1155))
+[2m2025-12-03T23:50:13.933135Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.933477Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1156))
+[2m2025-12-03T23:50:13.933685Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.933969Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1157))
+[2m2025-12-03T23:50:13.934303Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.934552Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1158))
+[2m2025-12-03T23:50:13.934793Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.935034Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1159))
+[2m2025-12-03T23:50:13.935352Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.935475Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1160))
+[2m2025-12-03T23:50:13.935599Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.935745Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1161))
+[2m2025-12-03T23:50:13.935863Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.935980Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1162))
+[2m2025-12-03T23:50:13.936097Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.936215Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1163))
+[2m2025-12-03T23:50:13.936332Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.936445Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1164))
+[2m2025-12-03T23:50:13.936561Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.936673Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1165))
+[2m2025-12-03T23:50:13.936792Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.936906Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1166))
+[2m2025-12-03T23:50:13.937021Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.937134Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1167))
+[2m2025-12-03T23:50:13.937251Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.937365Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1168))
+[2m2025-12-03T23:50:13.937483Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.937596Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1169))
+[2m2025-12-03T23:50:13.937755Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.937871Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1170))
+[2m2025-12-03T23:50:13.937989Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.938107Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1171))
+[2m2025-12-03T23:50:13.938247Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.938379Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1172))
+[2m2025-12-03T23:50:13.938497Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.938610Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1173))
+[2m2025-12-03T23:50:13.938724Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.938833Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1174))
+[2m2025-12-03T23:50:13.938945Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.939055Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1175))
+[2m2025-12-03T23:50:13.939167Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.939281Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1176))
+[2m2025-12-03T23:50:13.939395Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.939505Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1177))
+[2m2025-12-03T23:50:13.939637Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.939745Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1178))
+[2m2025-12-03T23:50:13.939860Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.939968Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1179))
+[2m2025-12-03T23:50:13.940079Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.940187Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1180))
+[2m2025-12-03T23:50:13.940299Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.940409Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1181))
+[2m2025-12-03T23:50:13.940562Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.940674Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1182))
+[2m2025-12-03T23:50:13.940796Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.940933Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1183))
+[2m2025-12-03T23:50:13.941059Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.941259Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1184))
+[2m2025-12-03T23:50:13.941384Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.941520Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1185))
+[2m2025-12-03T23:50:13.941629Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.941776Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1186))
+[2m2025-12-03T23:50:13.941961Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.942164Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1187))
+[2m2025-12-03T23:50:13.942325Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.942433Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1188))
+[2m2025-12-03T23:50:13.942543Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.942647Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1189))
+[2m2025-12-03T23:50:13.942753Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.942853Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1190))
+[2m2025-12-03T23:50:13.942964Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.943068Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1191))
+[2m2025-12-03T23:50:13.943177Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.943301Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1192))
+[2m2025-12-03T23:50:13.943561Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.943735Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1193))
+[2m2025-12-03T23:50:13.943914Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.944102Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1194))
+[2m2025-12-03T23:50:13.944293Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.944457Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1195))
+[2m2025-12-03T23:50:13.944622Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.944782Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1196))
+[2m2025-12-03T23:50:13.944952Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.945112Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1197))
+[2m2025-12-03T23:50:13.945280Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.945440Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1198))
+[2m2025-12-03T23:50:13.945606Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.945770Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1199))
+[2m2025-12-03T23:50:13.945939Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.946099Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1200))
+[2m2025-12-03T23:50:13.946271Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.946441Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1201))
+[2m2025-12-03T23:50:13.946606Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.946772Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1202))
+[2m2025-12-03T23:50:13.946940Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.947098Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1203))
+[2m2025-12-03T23:50:13.947264Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.947424Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1204))
+[2m2025-12-03T23:50:13.947545Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.947649Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1205))
+[2m2025-12-03T23:50:13.947758Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.947862Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1206))
+[2m2025-12-03T23:50:13.947966Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.948067Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1207))
+[2m2025-12-03T23:50:13.948171Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.948273Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1208))
+[2m2025-12-03T23:50:13.948377Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.948477Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1209))
+[2m2025-12-03T23:50:13.948580Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.948680Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1210))
+[2m2025-12-03T23:50:13.948796Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.948895Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1211))
+[2m2025-12-03T23:50:13.948997Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.949098Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1212))
+[2m2025-12-03T23:50:13.949203Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.949303Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1213))
+[2m2025-12-03T23:50:13.949407Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.949508Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1214))
+[2m2025-12-03T23:50:13.949611Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.949711Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1215))
+[2m2025-12-03T23:50:13.949814Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.949916Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1216))
+[2m2025-12-03T23:50:13.950018Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.950117Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1217))
+[2m2025-12-03T23:50:13.950244Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.950346Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1218))
+[2m2025-12-03T23:50:13.950451Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.950551Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1219))
+[2m2025-12-03T23:50:13.950655Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.950756Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1220))
+[2m2025-12-03T23:50:13.950860Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.950961Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1221))
+[2m2025-12-03T23:50:13.951064Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.951165Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1222))
+[2m2025-12-03T23:50:13.951270Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.951372Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1223))
+[2m2025-12-03T23:50:13.951477Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.951578Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1224))
+[2m2025-12-03T23:50:13.951684Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.951785Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1225))
+[2m2025-12-03T23:50:13.951891Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.951992Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1226))
+[2m2025-12-03T23:50:13.952097Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.952209Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1227))
+[2m2025-12-03T23:50:13.952312Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.952422Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1228))
+[2m2025-12-03T23:50:13.952542Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.952651Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1229))
+[2m2025-12-03T23:50:13.952759Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.952864Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1230))
+[2m2025-12-03T23:50:13.952970Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.953072Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1231))
+[2m2025-12-03T23:50:13.953177Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.953299Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1232))
+[2m2025-12-03T23:50:13.953439Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.953562Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1233))
+[2m2025-12-03T23:50:13.953716Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.953849Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1234))
+[2m2025-12-03T23:50:13.953969Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.954077Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1235))
+[2m2025-12-03T23:50:13.954187Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
+[2m2025-12-03T23:50:13.954296Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m ActiveRelayActor cancelled: JoinError::Cancelled(Id(1236))
+[2m2025-12-03T23:50:13.954424Z[0m [31mERROR[0m [2miroh::magicsock::transports::relay::actor[0m[2m:[0m Home relay not set, send to new actor failed: channel closed.
