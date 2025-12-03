@@ -22,6 +22,15 @@ from pathlib import Path
 import pandas as pd
 import matplotlib.pyplot as plt
 
+# Optional label remapping for plots.
+# Left side: what you pass on the CLI (uc7, uc8, ...)
+# Right side: how it should appear in plots (UC1, UC3, ...)
+UC_LABEL_REMAP = {
+    "UC7": "UC1",
+    "UC8": "UC2",
+    "UC9": "UC3",
+    "UC10": "UC4",
+}
 
 SUMMARY_GLOB = "peer*-summary.json"
 RUN_GLOB = "run-*"
@@ -169,6 +178,18 @@ def per_run_means(peer_df: pd.DataFrame, cols: list[str]) -> pd.DataFrame:
     )
 
 
+def remove_outliers_iqr(series: pd.Series) -> pd.Series:
+    """Remove outliers using the classic IQR rule."""
+    if series.empty:
+        return series
+    q1 = series.quantile(0.25)
+    q3 = series.quantile(0.75)
+    iqr = q3 - q1
+    lower = q1 - 1.5 * iqr
+    upper = q3 + 1.5 * iqr
+    return series[(series >= lower) & (series <= upper)]
+
+
 # ---------------------------------------------------------------------------
 # Plot helpers
 # ---------------------------------------------------------------------------
@@ -178,11 +199,30 @@ def barplot_metric(run_df: pd.DataFrame, column: str, title: str, ylabel: str, o
 
     Each bar corresponds to one UC. The per-UC statistics are computed from
     the per-run values. UC labels on the x-axis make a legend redundant.
+    Outliers are removed per UC using the IQR rule before computing stats.
     """
     if column not in run_df.columns:
         return
 
-    stat = run_df.groupby("uc")[column].agg(["mean", "std"]).dropna(how="all")
+    # Robust per-UC stats with IQR outlier removal
+    def _robust_stats(s: pd.Series) -> pd.Series:
+        clean = remove_outliers_iqr(s.dropna())
+        return pd.Series(
+            {
+                "mean": clean.mean(),
+                "std": clean.std(),
+                "count": len(clean),
+            }
+        )
+
+    # groupby + apply returns a Series with MultiIndex; unstack to get DataFrame
+    stat = (
+        run_df
+        .groupby("uc")[column]
+        .apply(lambda s: _robust_stats(s))
+        .unstack()
+    )
+
     if stat.empty:
         return
 
@@ -263,21 +303,40 @@ def _plot_quantiles_generic(run_df: pd.DataFrame,
     """
     Helper to plot multiple quantile metrics side-by-side for each UC.
 
-    For each UC and each metric in 'cols', we compute mean ± std over runs
-    and draw grouped bars. Groups are the metrics in 'cols' (e.g. p50/p90/...),
-    each group containing one bar per UC.
+    For each UC and each metric in 'cols', we compute mean ± std over runs.
+    Outliers are removed per (UC, metric) using the IQR rule before computing
+    the statistics.
     """
     present_cols = [c for c in cols if c in run_df.columns]
     if not present_cols:
         return
 
-    stat = run_df.groupby("uc")[present_cols].agg(["mean", "std"])
-    if stat.empty:
+    # All UCs that have at least one non-NaN value in any of the metrics
+    df = run_df[["uc"] + present_cols].dropna(how="all", subset=present_cols)
+    if df.empty:
         return
 
-    ucs = stat.index.tolist()
+    ucs = sorted(df["uc"].unique())
     n_ucs = len(ucs)
     n_metrics = len(present_cols)
+
+    # mean/std matrices: shape (n_ucs, n_metrics)
+    means = [[0.0 for _ in range(n_metrics)] for _ in range(n_ucs)]
+    stds = [[0.0 for _ in range(n_metrics)] for _ in range(n_ucs)]
+
+    for uc_idx, uc in enumerate(ucs):
+        uc_df = df[df["uc"] == uc]
+
+        for m_idx, col in enumerate(present_cols):
+            s = uc_df[col].dropna()
+            if s.empty:
+                means[uc_idx][m_idx] = float("nan")
+                stds[uc_idx][m_idx] = 0.0
+                continue
+
+            clean = remove_outliers_iqr(s)
+            means[uc_idx][m_idx] = clean.mean()
+            stds[uc_idx][m_idx] = clean.std() if len(clean) > 1 else 0.0
 
     # Base x positions for the groups (one group per metric)
     x_base = list(range(n_metrics))
@@ -289,19 +348,18 @@ def _plot_quantiles_generic(run_df: pd.DataFrame,
 
     fig, ax = plt.subplots()
 
-    for i, uc in enumerate(ucs):
-        # Means and stds in the same order as present_cols
-        means = stat.loc[uc, (slice(None), "mean")].values.astype(float)
-        stds = stat.loc[uc, (slice(None), "std")].fillna(0).values.astype(float)
+    for uc_idx, uc in enumerate(ucs):
+        uc_means = [means[uc_idx][m_idx] for m_idx in range(n_metrics)]
+        uc_stds = [stds[uc_idx][m_idx] for m_idx in range(n_metrics)]
 
         # Center bars around the group position
-        offsets = [x + (i - (n_ucs - 1) / 2) * width for x in x_base]
+        offsets = [x + (uc_idx - (n_ucs - 1) / 2) * width for x in x_base]
 
         ax.bar(
             offsets,
-            means,
+            uc_means,
             width=width * 0.9,
-            yerr=stds,
+            yerr=uc_stds,
             capsize=3,
             label=uc,
         )
@@ -317,12 +375,67 @@ def _plot_quantiles_generic(run_df: pd.DataFrame,
     plt.close(fig)
 
 
+
+def _scatter_quantiles_generic(run_df: pd.DataFrame,
+                               cols: list[str],
+                               title: str,
+                               ylabel: str,
+                               out: Path):
+    present_cols = [c for c in cols if c in run_df.columns]
+    if not present_cols:
+        return
+
+    cols_used = ["uc", "run"] + present_cols
+    df = run_df[cols_used].dropna(how="all", subset=present_cols)
+    if df.empty:
+        return
+
+    ucs = sorted(df["uc"].unique())
+    n_ucs = len(ucs)
+    n_metrics = len(present_cols)
+
+    x_base = list(range(n_metrics))
+
+    total_width = 0.7
+    uc_step = total_width / max(n_ucs, 1)
+
+    fig, ax = plt.subplots()
+
+    for uc_idx, uc in enumerate(ucs):
+        uc_df = df[df["uc"] == uc]
+
+        for m_idx, col in enumerate(present_cols):
+            ys = uc_df[col].dropna().values
+            if len(ys) == 0:
+                continue
+
+            center_x = x_base[m_idx] + (uc_idx - (n_ucs - 1) / 2) * uc_step
+
+            if len(ys) > 1:
+                jitter_step = uc_step / (len(ys) + 1)
+                xs = [
+                    center_x + (j - (len(ys) - 1) / 2) * jitter_step
+                    for j in range(len(ys))
+                ]
+            else:
+                xs = [center_x]
+
+            ax.scatter(xs, ys, label=uc if m_idx == 0 else None)
+
+    ax.set_xticks(x_base)
+    ax.set_xticklabels(present_cols, rotation=15)
+    ax.set_ylabel(ylabel)
+    ax.set_title(title)
+    ax.legend()
+
+    fig.tight_layout()
+    fig.savefig(out, dpi=200)
+    plt.close(fig)
+
+
 def plot_latency_quantiles(run_df: pd.DataFrame, out: Path):
     """
     Plot latency quantiles (p50, p90, p99, max) as grouped bar plot.
-
-    Each group corresponds to a quantile, and within each group we draw one
-    bar per UC (mean ± std over runs).
     """
     cols = ["lat_p50", "lat_p90", "lat_p99", "lat_max"]
     _plot_quantiles_generic(run_df, cols, "Latency Quantiles", "latency (ms)", out)
@@ -365,23 +478,25 @@ def main():
         # Allow custom path via "LABEL:/path/to/logs"
         if ":" in entry:
             label, path = entry.split(":", 1)
-            base_label = label.upper()
+            base_label_raw = label.upper()
+            display_label = UC_LABEL_REMAP.get(base_label_raw, base_label_raw)
             base_name = label.lower()
             base_path = Path(path)
         else:
-            base_label = entry.upper()
+            base_label_raw = entry.upper()
+            display_label = UC_LABEL_REMAP.get(base_label_raw, base_label_raw)
             base_name = entry.lower()
             base_path = Path(f"logs/{base_name}")
 
         if args.peers:
             # If peer counts are given, expect subdirectories p<PEERS>
             for p in args.peers:
-                sub_label = f"{base_label}_P{p}"
-                sub_name = f"{base_name}_p{p}"
+                sub_label = f"{display_label}_P{p}"   # shown in plots
+                sub_name = f"{base_name}_p{p}"        # folder/tag name
                 sub_path = base_path / f"p{p}"
                 uc_specs.append((sub_label, sub_name, sub_path))
         else:
-            uc_specs.append((base_label, base_name, base_path))
+            uc_specs.append((display_label, base_name, base_path))
 
     # Combine all UC names into one folder name for this analysis run
     combo_name = "_".join(sorted({name for _, name, _ in uc_specs}))
@@ -411,13 +526,22 @@ def main():
     # List of metrics expected in the summaries.
     # Boolean flags like joined/saw_test/sender_joined are treated as 0/1.
     metrics = [
+        # delivery / duplicates / ordering
         "delivery_rate", "duplicate_rate", "received_unique", "recv_total",
         "total_expected", "duplicates", "out_of_order",
+        # latency
         "lat_min", "lat_p50", "lat_p90", "lat_p99", "lat_max",
+        # LDH
         "ldh_min", "ldh_p50", "ldh_p90", "ldh_p99", "ldh_max",
-        "convergence_time_ms", "pr_avg_ratio",
-        "rt_avg_ms", "rt_p50_ms", "rt_p90_ms", "rt_max_ms",
-        "disconnect_events", "reconnect_events", "reconnect_samples",
+        # reachability & connectivity
+        "pr_avg_ratio",
+        "avg_connected_peers",
+        # downtime
+        "downtime_total_ms", "downtime_periods",
+        "downtime_p50_ms", "downtime_p90_ms", "downtime_max_ms",
+        # neighbour counts (active view churn)
+        "neighbour_down", "neighbour_up",
+        # join / run state
         "join_wait_ms",
         "sender_joined",
         "joined",
@@ -430,10 +554,6 @@ def main():
 
     # Compute per-run means across peers
     run_df = per_run_means(peer_df, metrics)
-
-    # Convenience: also expose convergence time in seconds
-    if "convergence_time_ms" in run_df.columns:
-        run_df["convergence_time_s"] = run_df["convergence_time_ms"] / 1000.0
 
     # -----------------------------------------------------------------------
     # Special handling for "critical" percentage / ratio metrics
@@ -453,25 +573,6 @@ def main():
         )
         run_df = run_df.merge(delivery_joined, on=["uc", "run"], how="left")
 
-    # Reconnect samples: average over all peers that joined the mesh.
-    if {"joined", "reconnect_samples"}.issubset(peer_df.columns):
-        rs_joined = (
-            peer_df[peer_df["joined"] == 1]
-            .groupby(["uc", "run"], as_index=False)["reconnect_samples"]
-            .mean()
-            .rename(columns={"reconnect_samples": "reconnect_samples_joined_only"})
-        )
-        rs_joined.to_csv(
-            out_dir / "reconnect_samples_joined_only_per_run.csv",
-            index=False,
-        )
-        run_df = run_df.merge(rs_joined, on=["uc", "run"], how="left")
-
-    # Per-run CSV for reconnect time
-    if "rt_avg_ms" in run_df.columns:
-        reconnect_per_run = run_df[["uc", "run", "rt_avg_ms"]]
-        reconnect_per_run.to_csv(out_dir / "reconnect_time_per_run.csv", index=False)
-
     # Per-run CSV for peer reachability ratio
     if "pr_avg_ratio" in run_df.columns:
         pr_per_run = run_df[["uc", "run", "pr_avg_ratio"]]
@@ -481,6 +582,28 @@ def main():
     if "out_of_order" in run_df.columns:
         ooo_per_run = run_df[["uc", "run", "out_of_order"]]
         ooo_per_run.to_csv(out_dir / "out_of_order_per_run.csv", index=False)
+
+    # Per-run CSV for average connected peers
+    if "avg_connected_peers" in run_df.columns:
+        conn_per_run = run_df[["uc", "run", "avg_connected_peers"]]
+        conn_per_run.to_csv(out_dir / "connected_peers_per_run.csv", index=False)
+
+    # Per-run CSV for downtime statistics
+    downtime_cols = [
+        "downtime_total_ms",
+        "downtime_periods",
+        "downtime_p50_ms",
+        "downtime_p90_ms",
+        "downtime_max_ms",
+    ]
+    if all(c in run_df.columns for c in downtime_cols):
+        downtime_per_run = run_df[["uc", "run"] + downtime_cols]
+        downtime_per_run.to_csv(out_dir / "downtime_per_run.csv", index=False)
+
+    # Per-run CSV for neighbour churn (NeighborUp/NeighborDown counts)
+    if {"neighbour_down", "neighbour_up"}.issubset(run_df.columns):
+        neigh_per_run = run_df[["uc", "run", "neighbour_down", "neighbour_up"]]
+        neigh_per_run.to_csv(out_dir / "neighbour_counts_per_run.csv", index=False)
 
     # Filter to valid runs where the sender actually joined.
     valid_run_df = run_df[run_df["sender_joined"] == 1].copy()
@@ -537,21 +660,6 @@ def main():
             index=False,
         )
 
-    # Convergence time tables
-    if "convergence_time_s" in run_df.columns:
-        conv_per_run = run_df[["uc", "run", "convergence_time_ms", "convergence_time_s"]]
-        conv_per_run.to_csv(out_dir / "convergence_time_per_run.csv", index=False)
-
-        conv_summary = run_df.groupby("uc")["convergence_time_s"].agg(
-            total_runs="count",
-            mean_convergence_s="mean",
-            std_convergence_s="std",
-            min_s="min",
-            max_s="max",
-        ).reset_index()
-
-        conv_summary.to_csv(out_dir / "convergence_time_uc_summary.csv", index=False)
-
     # Write the full per-run metrics CSV (including derived columns)
     run_df.to_csv(out_dir / "per_run_means.csv", index=False)
 
@@ -585,32 +693,51 @@ def main():
     plot_latency_quantiles(run_df, out_dir / "latency_quantiles.png")
     plot_ldh_quantiles(run_df, out_dir / "ldh_quantiles.png")
 
-    # Convergence time: bar plot in seconds
-    barplot_metric(run_df, "convergence_time_s", "Convergence Time", "seconds",
-                   out_dir / "convergence_time.png")
-
     # Peer reachability ratio: bar plot
     barplot_metric(run_df, "pr_avg_ratio", "Peer Reachability", "ratio",
                    out_dir / "peer_reachability.png")
+    
+    # Average number of connected peers
+    barplot_metric(
+        run_df,
+        "avg_connected_peers",
+        "Average Connected Peers",
+        "peers",
+        out_dir / "avg_connected_peers.png",
+    )
 
-    # Reconnect time: always a scatterplot over per-run values
-    scatter_metric(run_df, "rt_avg_ms", "Reconnect Time per Run", "ms",
-                   out_dir / "reconnect_time_scatter.png")
+    # Total downtime in ms (periods with zero neighbours)
+    barplot_metric(
+        run_df,
+        "downtime_total_ms",
+        "Total Downtime (connected_peers == 0)",
+        "ms",
+        out_dir / "downtime_total_ms.png",
+    )
 
-    # Reconnect samples: prefer the joined-only metric
-    rs_column = (
-        "reconnect_samples_joined_only"
-        if "reconnect_samples_joined_only" in run_df.columns
-        else "reconnect_samples"
+    # Number of downtime periods
+    barplot_metric(
+        run_df,
+        "downtime_periods",
+        "Downtime Periods (connected_peers == 0)",
+        "count",
+        out_dir / "downtime_periods.png",
+    )
+
+    # Neighbour churn (NeighborUp + NeighborDown)
+    barplot_metric(
+        run_df,
+        "neighbour_up",
+        "NeighborUp Events (per run, avg over peers)",
+        "count",
+        out_dir / "neighbour_up.png",
     )
     barplot_metric(
         run_df,
-        rs_column,
-        "Reconnect Samples (joined peers only)"
-        if rs_column == "reconnect_samples_joined_only"
-        else "Reconnect Samples",
+        "neighbour_down",
+        "NeighborDown Events (per run, avg over peers)",
         "count",
-        out_dir / "reconnect_samples.png",
+        out_dir / "neighbour_down.png",
     )
 
     # Receiver ratios (joined): barplots over valid runs
