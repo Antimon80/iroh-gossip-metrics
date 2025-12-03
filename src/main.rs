@@ -63,7 +63,7 @@ async fn main() -> Result<()> {
         .init();
     let args = Args::parse();
 
-    let mut logger = metrics::JsonWriter::new(&args.log)?;
+    let mut logger = util::JsonWriter::new(&args.log)?;
 
     // Determine discovery mode
     let discovery = match args.discovery.as_str() {

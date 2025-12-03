@@ -1,7 +1,6 @@
 use crate::util::now_ms;
-use bytes::Bytes;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashSet, fs::File, io::Write, path::Path};
+use std::collections::HashSet;
 
 /// Application-level payload sent during benchmarks.
 ///
@@ -23,25 +22,6 @@ pub struct DataMsg {
     pub total: u64,
     /// Padding bytes (used to normalize payload size).
     pub pad: Vec<u8>,
-}
-
-// Transport-level events as seen by the benchmark harness.
-//
-// These events are produced by a backend transport (e.g., gossip)
-// and consumed by the receiver loop to update metrics.
-#[derive(Debug, Clone)]
-pub enum TransportEvent {
-    /// A data message was received.
-    ///
-    /// `bytes` is the raw serialized DataMsg payload.
-    /// `ldh` is the last-delivery-hop value (number of overlay hops) if known.
-    Msg { bytes: Bytes, ldh: Option<u16> },
-    /// The transport reported that it lagged behind (buffer overrun / dropped events).
-    Lagged,
-    /// A neighbor/peer disconnected.
-    Disconnect,
-    /// A neighbor/peer reconnected or became reachable again.
-    Reconnect,
 }
 
 /// One structured log line written as JSONL.
@@ -68,29 +48,6 @@ pub struct LogEvent<'a> {
     pub extra: serde_json::Value,
 }
 
-/// Simple JSONL writer for benchmark logs.
-///
-/// Each call to `write` appends a single JSON object as one line.
-pub struct JsonWriter {
-    file: File,
-}
-
-impl JsonWriter {
-    /// Create a new JSONL writer that truncates/creates the given file path.
-    pub fn new<P: AsRef<Path>>(path: P) -> anyhow::Result<Self> {
-        Ok(Self {
-            file: File::create(path)?,
-        })
-    }
-
-    /// Append a single event as one JSON line.
-    pub fn write(&mut self, ev: &LogEvent) -> anyhow::Result<()> {
-        let line = serde_json::to_string(ev)?;
-        writeln!(self.file, "{}", line)?;
-        Ok(())
-    }
-}
-
 /// Accumulates per-run receiver statistics.
 ///
 /// This struct is intentionally stateful and updated incrementally
@@ -114,27 +71,25 @@ pub struct Stats {
     // expected total messages
     pub total_expected: u64,
 
-    // convergence time (CT)
-    first_sent_ms: Option<u64>,
-    last_recv_ts_ms: Option<u64>,
-    convergence_time_ms: Option<u64>,
-
     // peer reachability (PR)
     pr_last_ts: Option<u64>,
     pr_last_ratio: f64,
     pr_acc_ms: f64,
     pr_total_ms: f64,
 
-    // reconnect time (RT)
-    last_disconnect_ts: Option<u64>,
-    waiting_first_after_reconnect: bool,
-    reconnect_time_ms: Vec<u64>,
+    // count neighbours in active view
+    neighbour_down: u64,
+    neighbour_up: u64,
 
-    // counting disconnects/reconnects
-    pub disconnect_events: u64,
-    pub reconnect_events: u64,
-    pub reconnect_samples: u64,
-    is_disconnected: bool,
+    // connectivity-level (active neighbors)
+    conn_last_connected: u64,
+    conn_acc_ms: f64,
+    conn_total_ms: f64,
+
+    // downtime-periods (connected_peers == 0)
+    downtime_started_at: Option<u64>,
+    downtime_periods: u64,
+    downtime_duration_ms: Vec<u64>,
 }
 
 /// Final summarized metrics for one receiver run.
@@ -166,22 +121,22 @@ pub struct Summary {
     pub ldh_p99: Option<u64>,
     pub ldh_max: Option<u64>,
 
-    // convergence time
-    pub convergence_time_ms: Option<u64>,
-
     // peer reachability
     pub pr_avg_ratio: Option<f64>,
 
-    // reconnect times
-    pub rt_avg_ms: Option<u64>,
-    pub rt_p50_ms: Option<u64>,
-    pub rt_p90_ms: Option<u64>,
-    pub rt_max_ms: Option<u64>,
+    // active neighbours
+    pub avg_connected_peers: Option<f64>,
 
-    // disconnect/reconnect counts
-    pub disconnect_events: u64,
-    pub reconnect_events: u64,
-    pub reconnect_samples: u64,
+    // periods with zero active neighbours
+    pub downtime_total_ms: u64,
+    pub downtime_periods: u64,
+    pub downtime_p50_ms: Option<u64>,
+    pub downtime_p90_ms: Option<u64>,
+    pub downtime_max_ms: Option<u64>,
+
+    // neighbour in active view counts
+    pub neighbour_down: u64,
+    pub neighbour_up: u64,
 
     // startup/termination flags
     pub joined: bool,
@@ -221,40 +176,21 @@ impl Stats {
         if let Some(h) = ldh {
             self.ldhs.push(h as u64);
         }
-
-        // Track first send time and last receive time for convergence.
-        self.first_sent_ms = Some(
-            self.first_sent_ms
-                .map_or(message.sent_ms, |m| m.min(message.sent_ms)),
-        );
-        self.last_recv_ts_ms = Some(recv_ts_ms);
-
-        // If we have seen all expected messages, compute convergence time once.
-        if self.convergence_time_ms.is_none()
-            && self.total_expected > 0
-            && self.seen.len() as u64 >= self.total_expected
-        {
-            if let (Some(first_sent), Some(last_recv)) = (self.first_sent_ms, self.last_recv_ts_ms)
-            {
-                self.convergence_time_ms = Some(last_recv.saturating_sub(first_sent));
-            }
-        }
-
-        // If a reconnect happened and this is the first post-reconnect message,
-        // measure time since disconnect.
-        if self.waiting_first_after_reconnect {
-            if let Some(disc) = self.last_disconnect_ts {
-                let rt = recv_ts_ms.saturating_sub(disc);
-                self.reconnect_time_ms.push(rt);
-                self.reconnect_samples += 1;
-            }
-            self.waiting_first_after_reconnect = false;
-        }
     }
 
     /// Note a lagged transport event (buffer overrun / skipped events).
     pub fn note_lagged(&mut self) {
         self.lagged_events += 1;
+    }
+
+    // Note a neighbour is removed from the active view set
+    pub fn note_neighbour_down(&mut self) {
+        self.neighbour_down +=1;
+    }
+
+    // Note a neighbour is added to the active view set
+    pub fn note_neighbour_up(&mut self) {
+        self.neighbour_up += 1;
     }
 
     /// Record a new snapshot of peer connectivity and reachability.
@@ -268,41 +204,35 @@ impl Stats {
             (reachable as f64) / (connected as f64)
         };
 
-        // Accumulate time-weighted ratio since last update.
         if let Some(prev_ts) = self.pr_last_ts {
             let dur = ts_ms.saturating_sub(prev_ts) as f64;
+
+            // Accumulate time-weighted ratio since last update.
             self.pr_acc_ms += dur * self.pr_last_ratio;
             self.pr_total_ms += dur;
+
+            // Accumulate time-weighted mean of connected_peers
+            self.conn_acc_ms += dur * (self.conn_last_connected as f64);
+            self.conn_total_ms += dur;
         }
+
+        // detect downtime periods
+        if self.conn_last_connected > 0 && connected == 0 {
+            self.downtime_started_at = Some(ts_ms);
+            self.downtime_periods += 1;
+        }
+
+        // end of downtime period
+        if self.conn_last_connected == 0 && connected > 0 {
+            if let Some(start) = self.downtime_started_at.take() {
+                let dur = ts_ms.saturating_sub(start);
+                self.downtime_duration_ms.push(dur);
+            }
+        }
+
         self.pr_last_ts = Some(ts_ms);
         self.pr_last_ratio = ratio;
-    }
-
-    /// Note that a disconnect happened at the given timestamp.
-    ///
-    /// This arms reconnect-time measurement to start from this time.
-    pub fn note_disconnect(&mut self, ts_ms: u64) {
-        self.last_disconnect_ts = Some(ts_ms);
-        self.waiting_first_after_reconnect = false;
-
-        if !self.is_disconnected {
-            self.disconnect_events += 1;
-            self.is_disconnected = true;
-        }
-    }
-
-    /// Note that a reconnect happened at the given timestamp.
-    ///
-    /// We only compute reconnect time once the first message arrives after reconnect,
-    /// because that's when the system is effectively usable again.
-    pub fn note_reconnect(&mut self) {
-        if self.last_disconnect_ts.is_some() && self.is_disconnected {
-            self.waiting_first_after_reconnect = true;
-            self.reconnect_events += 1;
-            self.is_disconnected = false;
-        } else {
-            self.waiting_first_after_reconnect = false;
-        }
+        self.conn_last_connected = connected;
     }
 
     /// Return the quantile value from a sorted slice using nearest-rank rounding.
@@ -317,7 +247,7 @@ impl Stats {
 
     /// Produce a Summary from the accumulated stats.
     ///
-    /// This sorts latency and reconnect-time samples, finalizes reachability
+    /// This sorts latency samples, finalizes reachability and connectivity
     /// averaging, and computes all derived rates.
     pub fn summarize(&mut self) -> Summary {
         // latencies
@@ -345,8 +275,20 @@ impl Stats {
         if let Some(prev_ts) = self.pr_last_ts {
             let now = now_ms();
             let dur = now.saturating_sub(prev_ts) as f64;
+
+            // PR
             self.pr_acc_ms += dur * self.pr_last_ratio;
             self.pr_total_ms += dur;
+
+            // av connected_peers
+            self.conn_acc_ms += dur * (self.conn_last_connected as f64);
+            self.conn_total_ms += dur;
+
+            if let Some(start) = self.downtime_started_at.take() {
+                let dur_ms = now.saturating_sub(start);
+                self.downtime_duration_ms.push(dur_ms);
+            }
+
             self.pr_last_ts = Some(now);
         }
 
@@ -356,9 +298,19 @@ impl Stats {
             None
         };
 
-        // reconnect times
-        let mut rts = self.reconnect_time_ms.clone();
-        rts.sort_unstable();
+        let avg_connected_peers = if self.conn_total_ms > 0.0 {
+            Some(self.conn_acc_ms / self.conn_total_ms)
+        } else {
+            None
+        };
+
+        // downtime stats
+        let mut downtime_sorted = self.downtime_duration_ms.clone();
+        downtime_sorted.sort_unstable();
+        let downtime_total_ms: u64 = downtime_sorted.iter().copied().sum();
+        let downtime_p50 = Self::quantil(&downtime_sorted, 0.50);
+        let downtime_p90 = Self::quantil(&downtime_sorted, 0.90);
+        let downtime_max = downtime_sorted.last().copied();
 
         Summary {
             // delivery
@@ -387,26 +339,20 @@ impl Stats {
             ldh_p99: Self::quantil(&self.ldhs, 0.99),
             ldh_max: self.ldhs.last().copied(),
 
-            // CT
-            convergence_time_ms: self.convergence_time_ms,
-
             // PR
             pr_avg_ratio: pr_avg,
 
-            // RT
-            rt_avg_ms: if rts.is_empty() {
-                None
-            } else {
-                Some((rts.iter().sum::<u64>() / rts.len() as u64) as u64)
-            },
-            rt_p50_ms: Self::quantil(&rts, 0.50),
-            rt_p90_ms: Self::quantil(&rts, 0.90),
-            rt_max_ms: rts.last().copied(),
+            // count neighbours in active view
+            neighbour_down: self.neighbour_down,
+            neighbour_up: self.neighbour_up,
 
-            // disconnect/reconnect counts
-            disconnect_events: self.disconnect_events,
-            reconnect_events: self.reconnect_events,
-            reconnect_samples: rts.len() as u64,
+            // connectivity
+            avg_connected_peers,
+            downtime_total_ms,
+            downtime_periods: self.downtime_periods,
+            downtime_p50_ms: downtime_p50,
+            downtime_p90_ms: downtime_p90,
+            downtime_max_ms: downtime_max,
 
             // startup/termination flags (defaults)
             joined: false,

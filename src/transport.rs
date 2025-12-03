@@ -1,4 +1,3 @@
-use crate::metrics::TransportEvent;
 use crate::metrics::{DataMsg, LogEvent, Stats, Summary};
 use crate::util::{now_ms, pad_payload, topic_from_name};
 use anyhow::Result;
@@ -38,7 +37,7 @@ pub trait Transport: Send + Sync {
     async fn broadcast(&self, bytes: Bytes) -> Result<()>;
 
     /// Waits for and returns the next recieved message (or an error).
-    async fn next(&mut self) -> Option<Result<TransportEvent>>;
+    async fn next(&mut self) -> Option<Result<Event>>;
 
     /// Whether this peer observed a confirmed gossip join.
     ///
@@ -60,7 +59,7 @@ pub struct IrohGossip {
     /// Local node ID (as string for logging)
     id: String,
     /// Stream for receiving messages
-    rx: tokio_stream::wrappers::ReceiverStream<anyhow::Result<TransportEvent>>,
+    rx: tokio_stream::wrappers::ReceiverStream<anyhow::Result<Event>>,
     /// Channel for outgoing messages
     tx: tokio::sync::mpsc::Sender<Bytes>,
     /// Underlying iroh endpoint
@@ -161,7 +160,7 @@ impl IrohGossip {
 
         // Outgoing and incoming channels (always created so caller can run)
         let (tx, mut tx_rx) = tokio::sync::mpsc::channel::<Bytes>(128);
-        let (ev_tx, ev_rx) = tokio::sync::mpsc::channel::<anyhow::Result<TransportEvent>>(1024);
+        let (ev_tx, ev_rx) = tokio::sync::mpsc::channel::<anyhow::Result<Event>>(1024);
 
         // Values to return
         let joined: bool;
@@ -200,33 +199,8 @@ impl IrohGossip {
                 tokio::spawn(async move {
                     while let Some(item) = receiver.next().await {
                         match item {
-                            Ok(Event::Received(m)) => {
-                                // Extract LDH from DeliveryScope without importing Round.
-                                let ldh = match m.scope {
-                                    DeliveryScope::Swarm(round) => {
-                                        // Use serde_json to convert Round -> u16
-                                        let v = serde_json::to_value(&round).unwrap();
-                                        Some(v.as_u64().unwrap_or(0) as u16)
-                                    }
-                                    DeliveryScope::Neighbors => None,
-                                };
-
-                                let _ = ev_tx
-                                    .send(Ok(TransportEvent::Msg {
-                                        bytes: Bytes::from(m.content),
-                                        ldh,
-                                    }))
-                                    .await;
-                            }
-
-                            Ok(Event::Lagged) => {
-                                let _ = ev_tx.send(Ok(TransportEvent::Lagged)).await;
-                            }
-                            Ok(Event::NeighborUp(_)) => {
-                                let _ = ev_tx.send(Ok(TransportEvent::Reconnect)).await;
-                            }
-                            Ok(Event::NeighborDown(_)) => {
-                                let _ = ev_tx.send(Ok(TransportEvent::Disconnect)).await;
+                            Ok(ev) => {
+                                let _ = ev_tx.send(Ok(ev)).await;
                             }
                             Err(e) => {
                                 let _ = ev_tx.send(Err(e.into())).await;
@@ -292,7 +266,7 @@ impl Transport for IrohGossip {
         Ok(())
     }
 
-    async fn next(&mut self) -> Option<Result<TransportEvent>> {
+    async fn next(&mut self) -> Option<Result<Event>> {
         self.rx.next().await.map(|r| r.map_err(|e| e.into()))
     }
 }
@@ -308,7 +282,7 @@ impl Transport for IrohGossip {
 /// * `payload_size` – Size of each payload in bytes.
 pub async fn run_sender<T: Transport>(
     transport: T,
-    log: &mut crate::metrics::JsonWriter,
+    log: &mut crate::util::JsonWriter,
     test_total: u64,
     rate_per_sec: u64,
     payload_size: usize,
@@ -370,7 +344,7 @@ pub async fn run_sender<T: Transport>(
 /// * `report_after_idle_ms` – Idle timeout (ms).
 pub async fn run_receiver<T: Transport>(
     mut transport: T,
-    log: &mut crate::metrics::JsonWriter,
+    log: &mut crate::util::JsonWriter,
     report_after_idle_ms: u64,
 ) -> anyhow::Result<Summary> {
     let start_ms = now_ms();
@@ -380,6 +354,8 @@ pub async fn run_receiver<T: Transport>(
 
     let mut stats = Stats::default();
     let mut current_test: Option<[u8; 16]> = None;
+
+    stats.record_peer_view(start_ms, 0, 0);
     let mut connected_peers: u64 = 0;
 
     // Write log event if receiver couldn't join topic
@@ -405,10 +381,18 @@ pub async fn run_receiver<T: Transport>(
 
             event = transport.next() => {
                 match event {
-                    Some(Ok(TransportEvent::Msg { bytes, ldh })) => {
+                    Some(Ok(Event::Received(m))) => {
                         let recv_ts = now_ms();
 
-                        if let Ok(m) = postcard::from_bytes::<DataMsg>(&bytes) {
+                        let ldh = match m.scope {
+                            DeliveryScope::Swarm(round) => {
+                                let v = serde_json::to_value(&round).unwrap();
+                                Some(v.as_u64().unwrap_or(0) as u16)
+                            }
+                            DeliveryScope::Neighbors => None,
+                        };
+
+                        if let Ok(m) = postcard::from_bytes::<DataMsg>(&m.content) {
 
                             // First valid DataMsg defines the active test.
                             if current_test.is_none() {
@@ -436,7 +420,7 @@ pub async fn run_receiver<T: Transport>(
                         }
                     }
 
-                    Some(Ok(TransportEvent::Lagged)) => {
+                    Some(Ok(Event::Lagged)) => {
                         stats.note_lagged();
                         log.write(&LogEvent {
                             ts_ms: now_ms(),
@@ -450,13 +434,13 @@ pub async fn run_receiver<T: Transport>(
                         })?;
                     }
 
-                    Some(Ok(TransportEvent::Disconnect)) => {
+                    Some(Ok(Event::NeighborDown(_))) => {
                         let ts = now_ms();
                         if connected_peers > 0 {
                             connected_peers -= 1;
                         }
+                        stats.note_neighbour_down();
                         stats.record_peer_view(ts, connected_peers, connected_peers);
-                        stats.note_disconnect(ts);
 
                         log.write(&LogEvent {
                             ts_ms: ts,
@@ -473,11 +457,11 @@ pub async fn run_receiver<T: Transport>(
                         })?;
                     }
 
-                    Some(Ok(TransportEvent::Reconnect)) => {
+                    Some(Ok(Event::NeighborUp(_))) => {
                         let ts = now_ms();
                         connected_peers += 1;
+                        stats.note_neighbour_up();
                         stats.record_peer_view(ts, connected_peers, connected_peers);
-                        stats.note_reconnect();
 
                         log.write(&LogEvent {
                             ts_ms: ts,
