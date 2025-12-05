@@ -72,6 +72,8 @@ async fn main() -> Result<()> {
         _ => anyhow::bail!("Invalid discovery mode, use 'direct' or 'relay'."),
     };
 
+    let run_time = args.num.clone() / args.rate.clone();
+
     match args.role.as_str() {
         "sender" => {
             let gossip = IrohGossip::connect(
@@ -84,6 +86,7 @@ async fn main() -> Result<()> {
                     .map(|s| s.to_string())
                     .collect(),
                 discovery,
+                run_time,
             )
             .await?;
 
@@ -135,6 +138,7 @@ async fn main() -> Result<()> {
                     .map(|s| s.to_string())
                     .collect(),
                 discovery,
+                run_time,
             )
             .await?;
 

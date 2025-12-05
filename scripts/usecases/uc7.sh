@@ -84,6 +84,8 @@ for p in "${BOOTSTRAP_PEERS[@]}"; do
     --log "$RLOG" \
     --idle-report-ms 3000 \
     --topic-name "$TOPIC" \
+    --num "$NUM" \
+    --rate "$RATE" \
     --discovery direct \
     1> "$RSUM" \
     2> "$RERR" &
@@ -165,6 +167,8 @@ for i in $(seq 1 "$PEERS"); do
     --log "$RLOG" \
     --idle-report-ms 3000 \
     --topic-name "$TOPIC" \
+    --num "$NUM" \
+    --rate "$RATE" \
     --discovery direct \
     --bootstrap "$BOOTSTRAP_LIST" \
     1> "$RSUM" \

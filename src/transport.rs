@@ -91,6 +91,7 @@ impl IrohGossip {
         secret_hex: Option<String>,
         bootstrap: Vec<String>,
         discovery: Discovery,
+        run_time: u64,
     ) -> Result<Self> {
         // -------------------------------------------------------------
         // 1) Build endpoint (optional deterministic secret key)
@@ -151,7 +152,7 @@ impl IrohGossip {
         // -------------------------------------------------------------
         // 3) subscribe_and_join MUST NOT HANG → wrap in timeout
         // -------------------------------------------------------------
-        let join_timeout = Duration::from_secs(30);
+        let join_timeout = Duration::from_secs(run_time + 10);
 
         let join_start = now_ms();
 
