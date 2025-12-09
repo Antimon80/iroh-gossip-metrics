@@ -101,7 +101,7 @@ def load_summary_file(path: Path):
 # ---------------------------------------------------------------------------
 # Load runs, attach sender_joined
 # ---------------------------------------------------------------------------
-def load_runs(base_dir: Path, uc_label: str) -> pd.DataFrame:
+def load_runs(base_dir: Path, uc_label: str, churn_pct: int | None = None) -> pd.DataFrame:
     """
     Load all peer summary files for all runs under a base directory.
 
@@ -135,6 +135,8 @@ def load_runs(base_dir: Path, uc_label: str) -> pd.DataFrame:
             s["uc"] = uc_label
             s["run"] = run_id
             s["sender_joined"] = sender_ok
+            if churn_pct is not None:
+                s["churn_pct"] = churn_pct
 
             rows.append(s)
 
@@ -467,12 +469,14 @@ def main():
                     help="Use-cases (e.g. uc1 uc2). Mapped to logs/<uc>/ ...")
     ap.add_argument("--peers", nargs="*", type=int,
                     help="Optional peer counts matching subfolders p<PEERS> under logs/<uc>/")
+    ap.add_argument("--churns", nargs="*", type=int,
+                    help="Optional churn percentages matching subfolders c<CHURN> under logs/<uc>/p<PEERS>/")
     ap.add_argument("--out", default="docs/metrics",
                     help="Output directory root for generated CSV and plots")
     args = ap.parse_args()
 
     # Build UC specs: (label used in plots, name used in combo_name, base path)
-    uc_specs: list[tuple[str, str, Path]] = []
+    uc_specs: list[tuple[str, str, Path, int | None]] = []
 
     for entry in args.uc:
         # Allow custom path via "LABEL:/path/to/logs"
@@ -491,22 +495,36 @@ def main():
         if args.peers:
             # If peer counts are given, expect subdirectories p<PEERS>
             for p in args.peers:
-                sub_label = f"{display_label}_P{p}"   # shown in plots
-                sub_name = f"{base_name}_p{p}"        # folder/tag name
-                sub_path = base_path / f"p{p}"
-                uc_specs.append((sub_label, sub_name, sub_path))
+                if args.churns:
+                    for c in args.churns:
+                        sub_label = f"{display_label}_P{p}_C{c}"   # shown in plots
+                        sub_name = f"{base_name}_p{p}_c{c}"        # folder/tag name
+                        sub_path = base_path / f"p{p}" / f"c{c}"
+                        uc_specs.append((sub_label, sub_name, sub_path, c))
+                else:
+                    sub_label = f"{display_label}_P{p}"   # shown in plots
+                    sub_name = f"{base_name}_p{p}"        # folder/tag name
+                    sub_path = base_path / f"p{p}"
+                    uc_specs.append((sub_label, sub_name, sub_path, None))
         else:
-            uc_specs.append((display_label, base_name, base_path))
+            if args.churns:
+                for c in args.churns:
+                    sub_label = f"{display_label}_C{c}"
+                    sub_name = f"{base_name}_c{c}"
+                    sub_path = base_path / f"c{c}"
+                    uc_specs.append((sub_label, sub_name, sub_path, c))
+            else:
+                uc_specs.append((display_label, base_name, base_path, None))
 
     # Combine all UC names into one folder name for this analysis run
-    combo_name = "_".join(sorted({name for _, name, _ in uc_specs}))
+    combo_name = "_".join(sorted({name for _, name, _, _ in uc_specs}))
     out_dir = Path(args.out) / combo_name
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # Load all UCs into a single peer-level DataFrame
     all_peers = []
-    for uc_label, _, uc_path in uc_specs:
-        df = load_runs(uc_path, uc_label)
+    for uc_label, _, uc_path, churn_pct in uc_specs:
+        df = load_runs(uc_path, uc_label, churn_pct=churn_pct)
         all_peers.append(df)
     peer_df = pd.concat(all_peers, ignore_index=True)
 
@@ -529,6 +547,8 @@ def main():
         # delivery / duplicates / ordering
         "delivery_rate", "duplicate_rate", "received_unique", "recv_total",
         "total_expected", "duplicates", "out_of_order",
+        # churn parameter (constant per run; added for filtering/labeling)
+        "churn_pct",
         # latency
         "lat_min", "lat_p50", "lat_p90", "lat_p99", "lat_max",
         # LDH

@@ -32,6 +32,10 @@ struct Args {
     #[arg(long, default_value_t = 256)]
     size: usize,
 
+    /// Percentage of peers churned in the scenario (0-100), for logging/analysis
+    #[arg(long, default_value_t = 0)]
+    churn_pct: u64,
+
     /// Milliseconds to wait after receive before summarizing
     #[arg(long, default_value_t = 3000)]
     idle_report_ms: u64,
@@ -103,6 +107,7 @@ async fn main() -> Result<()> {
                     "num": args.num,
                     "rate": args.rate,
                     "size": args.size,
+                    "churn_pct": args.churn_pct,
                     "joined": gossip.joined(),
                     "join_wait_ms": gossip.join_wait_ms(),
                 }),
@@ -152,6 +157,7 @@ async fn main() -> Result<()> {
                 ldh: None,
                 extra: serde_json::json!({
                     "discovery": args.discovery,
+                    "churn_pct": args.churn_pct,
                     "joined": gossip.joined(),
                     "join_wait_ms": gossip.join_wait_ms(),
                 }),
