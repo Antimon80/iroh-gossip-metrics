@@ -58,6 +58,32 @@ echo "== Apply scenario on bridge $BR =="
 bash "$ROOT/$SCENARIO" "$BR"
 
 #############################################
+# Helper: temporarily isolate peer network
+#############################################
+
+isolate_peer_net() {
+  local i="$1"
+  local ns; ns="$(ns_name "$i")"
+  local vh; vh="$(veth_host "$i")"
+  local vn; vn="$(veth_ns "$i")"
+
+  echo "   -> isolate peer$i network (down $vh/$vn)"
+  $SUDO ip link set "$vh" down
+  $SUDO ip netns exec "$ns" ip link set "$vn" down
+}
+
+restore_peer_net() {
+  local i="$1"
+  local ns; ns="$(ns_name "$i")"
+  local vh; vh="$(veth_host "$i")"
+  local vn; vn="$(veth_ns "$i")"
+
+  echo "   -> restore peer$i network (up $vh/$vn)"
+  $SUDO ip link set "$vh" up
+  $SUDO ip netns exec "$ns" ip link set "$vn" up
+}
+
+#############################################
 # 0) CHOOSE BOOTSTRAP PEERS
 #############################################
 
@@ -95,7 +121,7 @@ for p in "${BOOTSTRAP_PEERS[@]}"; do
   run_in_ns "$p" "$BIN" \
     --role receiver \
     --log "$RLOG" \
-    --idle-report-ms 3000 \
+    --idle-report-ms 30000 \
     --num "$NUM" \
     --rate "$RATE" \
     --topic-name "$TOPIC" \
@@ -180,7 +206,7 @@ if (( PEERS > 1 )); then
     run_in_ns "$i" "$BIN" \
       --role receiver \
       --log "$RLOG" \
-      --idle-report-ms 3000 \
+      --idle-report-ms 30000 \
       --num "$NUM" \
       --rate "$RATE" \
       --topic-name "$TOPIC" \
@@ -214,7 +240,7 @@ run_in_ns 1 "$BIN" \
 SENDER_PID=$!
 
 #############################################
-# 5) CHURN PHASE: DISCONNECT + REJOIN OF RANDOM SUBSET OF PEERS 2..PEERS
+# 5) CHURN PHASE: TEMPORARY NETWORK ISOLATION OF RANDOM SUBSET OF PEERS 2..PEERS
 #############################################
 
 if (( PEERS > 1 )); then
@@ -259,45 +285,22 @@ if (( PEERS > 1 )); then
     # This subset remains fixed for kill + rejoin.
     mapfile -t CHURN_PEERS < <(printf "%s\n" "${CHURN_POOL[@]}" | shuf -n "$CHURN_COUNT" | sort -n)
 
-    echo "== Churn phase: random subset of non-bootstrap peers =="
+    echo "== Churn phase: random subset of non-bootstrap peers (network isolation) =="
     echo "   Selected churn peers: ${CHURN_PEERS[*]}"
     echo "== Waiting ${CHURN_START}s before starting churn =="
     sleep "$CHURN_START"
 
-    echo "== Churn: killing receivers in peers ${CHURN_PEERS[*]} =="
+    echo "== Churn: disabling network for peers ${CHURN_PEERS[*]} =="
     for i in "${CHURN_PEERS[@]}"; do
-      pid=${RECV_PIDS[$i]:-}
-      if [[ -n "${pid:-}" ]]; then
-        echo "   -> kill receiver in peer$i (pid=$pid)"
-        kill "$pid" 2>/dev/null || true
-        RECV_PIDS[$i]=
-      fi
+      isolate_peer_net "$i"
     done
 
     echo "== Churn: selected peers offline for ${CHURN_DOWN}s =="
     sleep "$CHURN_DOWN"
 
-    echo "== Rejoin: restart receivers in churned peers ${CHURN_PEERS[*]} =="
+    echo "== Rejoin: re-enable network for churned peers ${CHURN_PEERS[*]} =="
     for i in "${CHURN_PEERS[@]}"; do
-      RLOG="$LOGDIR/peer${i}-recv.jsonl"
-      RERR="$LOGDIR/peer${i}-recv.stderr"
-      RSUM="$LOGDIR/peer${i}-summary.json"
-
-      echo "   -> restart receiver in peer$i"
-      run_in_ns "$i" "$BIN" \
-        --role receiver \
-        --log "$RLOG" \
-        --idle-report-ms 3000 \
-        --num "$NUM" \
-      --rate "$RATE" \
-      --topic-name "$TOPIC" \
-      --churn-pct "$CHURN_PCT" \
-      --discovery direct \
-      --bootstrap "$BOOTSTRAP_LIST" \
-      1> "$RSUM" \
-        2> "$RERR" &
-
-      RECV_PIDS[$i]=$!
+      restore_peer_net "$i"
     done
   fi
 else

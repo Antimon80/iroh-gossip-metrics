@@ -3,18 +3,7 @@ set -euo pipefail
 
 # UC6: Churn and Recovery (Relay discovery)
 #
-# Same basic setup as UC2:
-# - all peers in the same LAN
-# - relay-assisted discovery via a single bootstrap peer (peer1)
-#
-# Additionally:
-# - after CHURN_START seconds, a fixed random subset of non-bootstrap peers
-#   (from 2..PEERS) is killed ("churned")
-# - after CHURN_DOWN seconds, exactly this subset of peers rejoins
-#
-# By default this uses a clean LAN (netem-none). To emulate a
-# degraded relay network, override:
-#   SCENARIO=scripts/scenarios/netem-loss30-delay50.sh
+# Identical to UC5, but Discovery over Relay.
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 source "$ROOT/scripts/netns/common_netns.sh"
@@ -31,20 +20,18 @@ DISCOVERY="${5:-RELAY}"
 
 TOPIC="${TOPIC:-lab}"
 
-# Churn parameters
-# Time after sender start until churn begins (seconds)
-CHURN_START="${CHURN_START:-5}"
-# How long churn peers stay offline before they rejoin (seconds)
-CHURN_DOWN="${CHURN_DOWN:-10}"
-# Number of non-bootstrap peers to churn (0 = choose default)
-CHURN_COUNT="${CHURN_COUNT:-0}"
+# Churn parameters (match UC5 defaults)
+CHURN_START="${CHURN_START:-40}"                # seconds until churn starts
+CHURN_DOWN="${CHURN_DOWN:-10}"                  # seconds peers stay offline
+CHURN_COUNT="${CHURN_COUNT:-0}"                 # number of non-bootstrap peers to churn (0 = choose default)
+CHURN_PCT="${CHURN_PCT:-0}"                     # percentage of peers to churn (relative to total PEERS), overrides default count when >0
 
-# Group logs by peer count
-BASELOG="${LOGDIR:-logs/uc6}/p${PEERS}"
+# group logs by peer count and churn pct
+BASELOG="${LOGDIR:-logs/uc6}/p${PEERS}/c${CHURN_PCT}"
 
 # Create parameter-tagged run directory
 TS=$(date +"%Y%m%d-%H%M%S")
-TAG="uc6_p${PEERS}_m${NUM}_r${RATE}_s${SIZE}_${DISCOVERY}"
+TAG="uc6_p${PEERS}_c${CHURN_PCT}_m${NUM}_r${RATE}_s${SIZE}_${DISCOVERY}"
 RUN_ID="run-${TS}_${TAG}"
 
 LOGDIR="$BASELOG/$RUN_ID"
@@ -52,9 +39,10 @@ BIN="$ROOT/target/release/iroh-gossip-metrics"
 
 mkdir -p "$LOGDIR"
 
-echo "== UC6 Relay Churn & Recovery with $PEERS peers =="
+echo "== UC6 Relay Churn & Recovery with $PEERS peers (Relay discovery) =="
 echo "SCENARIO=$SCENARIO NUM=$NUM RATE=$RATE SIZE=$SIZE TOPIC=$TOPIC"
 echo "CHURN_START=${CHURN_START}s CHURN_DOWN=${CHURN_DOWN}s CHURN_COUNT=${CHURN_COUNT:-auto}"
+echo "CHURN_PCT=${CHURN_PCT}%"
 echo "LOGDIR=$LOGDIR"
 echo
 
@@ -70,57 +58,147 @@ echo "== Apply scenario on bridge $BR =="
 bash "$ROOT/$SCENARIO" "$BR"
 
 #############################################
-# 1) BOOTSTRAP RECEIVER (PEER 1, relay discovery)
+# Helper: temporarily isolate peer network
 #############################################
 
-BOOT_RLOG="$LOGDIR/peer1-recv.jsonl"
-BOOT_RERR="$LOGDIR/peer1-recv.stderr"
-BOOT_SUM="$LOGDIR/peer1-summary.json"
+isolate_peer_net() {
+  local i="$1"
+  local ns; ns="$(ns_name "$i")"
+  local vh; vh="$(veth_host "$i")"
+  local vn; vn="$(veth_ns "$i")"
 
-: > "$BOOT_RERR"
+  echo "   -> isolate peer$i network (down $vh/$vn)"
+  $SUDO ip link set "$vh" down
+  $SUDO ip netns exec "$ns" ip link set "$vn" down
+}
 
-echo "== Start bootstrap receiver in peer1 (relay) =="
-run_in_ns 1 "$BIN" \
-  --role receiver \
-  --log "$BOOT_RLOG" \
-  --idle-report-ms 12000 \
-  --topic-name "$TOPIC" \
-  --discovery relay \
-  1> "$BOOT_SUM" \
-  2> "$BOOT_RERR" &
-BOOT_PID=$!
+restore_peer_net() {
+  local i="$1"
+  local ns; ns="$(ns_name "$i")"
+  local vh; vh="$(veth_host "$i")"
+  local vn; vn="$(veth_ns "$i")"
 
-# RECV_PIDS is indexed by peer id: RECV_PIDS[peer_id]=pid
+  echo "   -> restore peer$i network (up $vh/$vn)"
+  $SUDO ip link set "$vh" up
+  $SUDO ip netns exec "$ns" ip link set "$vn" up
+}
+
+#############################################
+# 0) CHOOSE BOOTSTRAP PEERS
+#############################################
+
 declare -a RECV_PIDS
-RECV_PIDS[1]=$BOOT_PID
+declare -a BOOT_NODE_IDS
+
+# Number of bootstrap peers: 1 per 10 peers (ceil)
+BOOTSTRAP_COUNT=$(((PEERS + 9) / 10))
+
+# Always include peer1 as bootstrap for determinism
+declare -a BOOTSTRAP_PEERS
+BOOTSTRAP_PEERS=(1)
+
+if (( BOOTSTRAP_COUNT > 1 )); then
+  EXTRA=$((BOOTSTRAP_COUNT - 1))
+  mapfile -t EXTRA_PEERS < <(seq 2 "$PEERS" | shuf -n "$EXTRA")
+  BOOTSTRAP_PEERS+=("${EXTRA_PEERS[@]}")
+fi
+
+echo "== Bootstrap peers (count=$BOOTSTRAP_COUNT): ${BOOTSTRAP_PEERS[*]} =="
 
 #############################################
-# 2) EXTRACT bootstrap node_id
+# 1) START BOOTSTRAP RECEIVERS
 #############################################
-echo "== Waiting for bootstrap node_id from peer1 =="
-NODE_ID=""
-for _ in {1..80}; do
-  if grep -q "node_id=" "$BOOT_RERR"; then
-    NODE_ID="$(grep -m1 'node_id=' "$BOOT_RERR" | sed -E 's/.*node_id=([[:alnum:]]+).*/\1/')"
-    break
-  fi
-  sleep 0.25
+
+echo "== Start bootstrap receivers in peers ${BOOTSTRAP_PEERS[*]} =="
+
+for p in "${BOOTSTRAP_PEERS[@]}"; do
+  RLOG="$LOGDIR/peer${p}-recv.jsonl"
+  RERR="$LOGDIR/peer${p}-recv.stderr"
+  RSUM="$LOGDIR/peer${p}-summary.json"
+
+  : > "$RERR"
+
+  run_in_ns "$p" "$BIN" \
+    --role receiver \
+    --log "$RLOG" \
+    --idle-report-ms 30000 \
+    --num "$NUM" \
+    --rate "$RATE" \
+    --topic-name "$TOPIC" \
+    --churn-pct "$CHURN_PCT" \
+    --discovery relay \
+    1> "$RSUM" \
+    2> "$RERR" &
+
+  RECV_PIDS[$p]=$!
 done
-if [[ -z "$NODE_ID" ]]; then
-  echo "ERROR: Could not detect bootstrap node_id" >&2
-  kill "$BOOT_PID" || true
-  cleanup_netns
-  exit 1
-fi
-echo "== Bootstrap node_id: $NODE_ID =="
+
+#############################################
+# 2) EXTRACT NODE_IDs OF ALL BOOTSTRAP PEERS
+#############################################
+
+echo "== Waiting for bootstrap node_ids =="
+
+idx=0
+for p in "${BOOTSTRAP_PEERS[@]}"; do
+  RERR="$LOGDIR/peer${p}-recv.stderr"
+  NODE_ID=""
+
+  echo "  - waiting for node_id from peer$p ..."
+  for _ in {1..80}; do
+    if grep -q "node_id=" "$RERR"; then
+      NODE_ID="$(grep -m1 'node_id=' "$RERR" | sed -E 's/.*node_id=([[:alnum:]]+).*/\1/')"
+      break
+    fi
+    sleep 0.25
+  done
+
+  if [[ -z "$NODE_ID" ]]; then
+    echo "ERROR: Could not detect bootstrap node_id for peer$p" >&2
+    for pid in "${RECV_PIDS[@]}"; do
+      kill "$pid" 2>/dev/null || true
+    done
+    cleanup_netns
+    exit 1
+  fi
+
+  BOOT_NODE_IDS[$idx]="$NODE_ID"
+  echo "    peer$p node_id: $NODE_ID"
+  idx=$((idx + 1))
+done
+
+# Build single comma-separated list for --bootstrap "<id1>,<id2>,<id3>"
+BOOTSTRAP_LIST=""
+for nid in "${BOOT_NODE_IDS[@]}"; do
+  if [[ -z "$BOOTSTRAP_LIST" ]]; then
+    BOOTSTRAP_LIST="$nid"
+  else
+    BOOTSTRAP_LIST+=",${nid}"
+  fi
+done
+
+echo "== Bootstrap list: $BOOTSTRAP_LIST =="
 
 #############################################
 # 3) START REMAINING RECEIVERS (PEER 2..PEERS)
 #############################################
-echo "== Start receivers peer2..peer$PEERS (relay, bootstrap=$NODE_ID) =="
 
 if (( PEERS > 1 )); then
-  for i in $(seq 2 "$PEERS"); do
+  echo "== Start receivers peer1..peer$PEERS (excluding bootstraps) =="
+
+  for i in $(seq 1 "$PEERS"); do
+    # Skip peers that are already started as bootstraps
+    is_bootstrap=0
+    for bp in "${BOOTSTRAP_PEERS[@]}"; do
+      if [[ "$bp" -eq "$i" ]]; then
+        is_bootstrap=1
+        break
+      fi
+    done
+    if [[ "$is_bootstrap" -eq 1 ]]; then
+      continue
+    fi
+
     RLOG="$LOGDIR/peer${i}-recv.jsonl"
     RERR="$LOGDIR/peer${i}-recv.stderr"
     RSUM="$LOGDIR/peer${i}-summary.json"
@@ -128,10 +206,13 @@ if (( PEERS > 1 )); then
     run_in_ns "$i" "$BIN" \
       --role receiver \
       --log "$RLOG" \
-      --idle-report-ms 12000 \
+      --idle-report-ms 30000 \
+      --num "$NUM" \
+      --rate "$RATE" \
       --topic-name "$TOPIC" \
+      --churn-pct "$CHURN_PCT" \
       --discovery relay \
-      --bootstrap "$NODE_ID" \
+      --bootstrap "$BOOTSTRAP_LIST" \
       1> "$RSUM" \
       2> "$RERR" &
 
@@ -139,12 +220,15 @@ if (( PEERS > 1 )); then
   done
 fi
 
+sleep 3   # relay discovery may take a while
+
 #############################################
 # 4) START SENDER IN PEER 1 (BACKGROUND)
 #############################################
+
 SLOG="$LOGDIR/send.jsonl"
 
-echo "== Start sender in peer1 (relay, bootstrap=$NODE_ID) in background =="
+echo "== Start sender in peer1 (bootstraps=$BOOTSTRAP_LIST) in background =="
 run_in_ns 1 "$BIN" \
   --role sender \
   --log "$SLOG" \
@@ -152,72 +236,75 @@ run_in_ns 1 "$BIN" \
   --rate "$RATE" \
   --size "$SIZE" \
   --topic-name "$TOPIC" \
+  --churn-pct "$CHURN_PCT" \
   --discovery relay \
-  --bootstrap "$NODE_ID" &
+  --bootstrap "$BOOTSTRAP_LIST" &
 SENDER_PID=$!
 
 #############################################
-# 5) CHURN PHASE: DISCONNECT + REJOIN (RANDOM SUBSET OF PEERS 2..PEERS)
+# 5) CHURN PHASE: TEMPORARY NETWORK ISOLATION OF RANDOM SUBSET OF PEERS 2..PEERS
 #############################################
 
 if (( PEERS > 1 )); then
-  # Determine how many peers to churn if not explicitly set
-  # Default: half of the non-bootstrap peers (rounded up), but at least 1
-  NON_BOOTSTRAP=$((PEERS - 1))
-
-  if (( CHURN_COUNT <= 0 )); then
-    CHURN_COUNT=$(((NON_BOOTSTRAP + 1) / 2))
-  fi
-
-  # Clamp CHURN_COUNT to [1, NON_BOOTSTRAP]
-  if (( CHURN_COUNT < 1 )); then
-    CHURN_COUNT=1
-  fi
-  if (( CHURN_COUNT > NON_BOOTSTRAP )); then
-    CHURN_COUNT=$NON_BOOTSTRAP
-  fi
-
-  # Randomly select CHURN_COUNT distinct peers from 2..PEERS.
-  # This subset is fixed for kill + rejoin.
-  mapfile -t CHURN_PEERS < <(seq 2 "$PEERS" | shuf -n "$CHURN_COUNT" | sort -n)
-
-  echo "== Churn phase: random subset of non-bootstrap peers =="
-  echo "   Selected churn peers: ${CHURN_PEERS[*]}"
-  echo "== Waiting ${CHURN_START}s before starting churn =="
-  sleep "$CHURN_START"
-
-  echo "== Churn: killing relay receivers in peers ${CHURN_PEERS[*]} =="
-  for i in "${CHURN_PEERS[@]}"; do
-    pid=${RECV_PIDS[$i]:-}
-    if [[ -n "${pid:-}" ]]; then
-      echo "   -> kill receiver in peer$i (pid=$pid)"
-      kill "$pid" 2>/dev/null || true
-      RECV_PIDS[$i]=
+  # Build churn pool from non-bootstrap peers (excluding peer1 and any extra bootstraps)
+  CHURN_POOL=()
+  for i in $(seq 2 "$PEERS"); do
+    is_bootstrap=0
+    for bp in "${BOOTSTRAP_PEERS[@]}"; do
+      if [[ "$bp" -eq "$i" ]]; then
+        is_bootstrap=1
+        break
+      fi
+    done
+    if (( is_bootstrap == 0 )); then
+      CHURN_POOL+=("$i")
     fi
   done
 
-  echo "== Peers offline for ${CHURN_DOWN}s =="
-  sleep "$CHURN_DOWN"
+  NON_BOOTSTRAP=${#CHURN_POOL[@]}
+  if (( NON_BOOTSTRAP == 0 )); then
+    echo "== No non-bootstrap peers available for churn, skipping churn phase =="
+  else
+    if (( CHURN_COUNT <= 0 )) && (( CHURN_PCT > 0 )); then
+      CHURN_COUNT=$(((PEERS * CHURN_PCT + 99) / 100)) # ceil(PEERS * pct / 100)
+    fi
 
-  echo "== Rejoin: restart receivers in churned peers ${CHURN_PEERS[*]} =="
-  for i in "${CHURN_PEERS[@]}"; do
-    RLOG="$LOGDIR/peer${i}-recv.jsonl"
-    RERR="$LOGDIR/peer${i}-recv.stderr"
-    RSUM="$LOGDIR/peer${i}-summary.json"
+    # Determine how many peers to churn if not explicitly set
+    # Default: half of the non-bootstrap peers (rounded up), but at least 1
+    if (( CHURN_COUNT <= 0 )); then
+      CHURN_COUNT=$(((NON_BOOTSTRAP + 1) / 2))
+    fi
 
-    echo "   -> restart receiver in peer$i (relay, bootstrap=$NODE_ID)"
-    run_in_ns "$i" "$BIN" \
-      --role receiver \
-      --log "$RLOG" \
-      --idle-report-ms 12000 \
-      --topic-name "$TOPIC" \
-      --discovery relay \
-      --bootstrap "$NODE_ID" \
-      1> "$RSUM" \
-      2> "$RERR" &
+    # Clamp CHURN_COUNT to [1, NON_BOOTSTRAP]
+    if (( CHURN_COUNT < 1 )); then
+      CHURN_COUNT=1
+    fi
+    if (( CHURN_COUNT > NON_BOOTSTRAP )); then
+      CHURN_COUNT=$NON_BOOTSTRAP
+    fi
 
-    RECV_PIDS[$i]=$!
-  done
+    # Randomly select CHURN_COUNT distinct peers from churn pool
+    # This subset remains fixed for isolation + rejoin.
+    mapfile -t CHURN_PEERS < <(printf "%s\n" "${CHURN_POOL[@]}" | shuf -n "$CHURN_COUNT" | sort -n)
+
+    echo "== Churn phase: random subset of non-bootstrap peers (network isolation) =="
+    echo "   Selected churn peers: ${CHURN_PEERS[*]}"
+    echo "== Waiting ${CHURN_START}s before starting churn =="
+    sleep "$CHURN_START"
+
+    echo "== Churn: disabling network for peers ${CHURN_PEERS[*]} =="
+    for i in "${CHURN_PEERS[@]}"; do
+      isolate_peer_net "$i"
+    done
+
+    echo "== Churn: selected peers offline for ${CHURN_DOWN}s =="
+    sleep "$CHURN_DOWN"
+
+    echo "== Rejoin: re-enable network for churned peers ${CHURN_PEERS[*]} =="
+    for i in "${CHURN_PEERS[@]}"; do
+      restore_peer_net "$i"
+    done
+  fi
 else
   echo "== No churn peers (PEERS <= 1), skipping churn phase =="
 fi
@@ -240,7 +327,7 @@ done
 # 7) CLEANUP
 #############################################
 
-echo "== Clear scenario =="
+echo "== Clear scenario (reset netem) =="
 bash "$ROOT/scripts/scenarios/netem-none.sh" "$BR"
 
 echo "== [netns] cleanup =="
