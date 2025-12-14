@@ -1,0 +1,37 @@
+{
+  "received_unique": 0,
+  "recv_total": 0,
+  "total_expected": 0,
+  "delivery_rate": 0.0,
+  "duplicate_rate": 0.0,
+  "duplicates": 0,
+  "out_of_order": 0,
+  "lagged_events": 0,
+  "lat_min": null,
+  "lat_p50": null,
+  "lat_p90": null,
+  "lat_p99": null,
+  "lat_max": null,
+  "ldh_min": null,
+  "ldh_p50": null,
+  "ldh_p90": null,
+  "ldh_p99": null,
+  "ldh_max": null,
+  "pr_avg_ratio": 1.0,
+  "avg_connected_peers": 2.2847724018514204,
+  "downtime_total_ms": 0,
+  "downtime_periods": 0,
+  "downtime_p50_ms": null,
+  "downtime_p90_ms": null,
+  "downtime_max_ms": null,
+  "neighbour_down": 19,
+  "neighbour_up": 21,
+  "joined": true,
+  "join_wait_ms": 75,
+  "saw_test": false,
+  "timed_out_no_data": true
+}
+[2m2025-12-14T17:21:32.288285Z[0m [31mERROR[0m [1mgossip[0m[1m{[0m[3mme[0m[2m=[0m4b2384997f[1m}[0m[2m:[0m [2miroh_gossip::net[0m[2m:[0m next conn error: JoinError::Cancelled(Id(267))
+[2m2025-12-14T17:21:32.288325Z[0m [31mERROR[0m [1mgossip[0m[1m{[0m[3mme[0m[2m=[0m4b2384997f[1m}[0m[2m:[0m [2miroh_gossip::net[0m[2m:[0m next conn error: JoinError::Cancelled(Id(193))
+[2m2025-12-14T17:21:32.288336Z[0m [31mERROR[0m [1mgossip[0m[1m{[0m[3mme[0m[2m=[0m4b2384997f[1m}[0m[2m:[0m [2miroh_gossip::net[0m[2m:[0m next conn error: JoinError::Cancelled(Id(257))
+[2m2025-12-14T17:21:32.288343Z[0m [31mERROR[0m [1mgossip[0m[1m{[0m[3mme[0m[2m=[0m4b2384997f[1m}[0m[2m:[0m [2miroh_gossip::net[0m[2m:[0m next conn error: JoinError::Cancelled(Id(167))

@@ -1,0 +1,2 @@
+{"ts_ms":1765735447168,"role":"sender","peer_id":"gossip:3826d16942753a3f8c50631b51419b985140420d70420a7be9773bbcf18415df","event":"setup","seq":null,"lat_ms":null,"ldh":null,"extra":{"churn_pct":30,"discovery":"relay","join_wait_ms":210002,"joined":false,"num":2000,"rate":10,"size":256}}
+{"ts_ms":1765735447168,"role":"sender","peer_id":"gossip:3826d16942753a3f8c50631b51419b985140420d70420a7be9773bbcf18415df","event":"no_join","seq":null,"lat_ms":null,"ldh":null,"extra":{"join_wait_ms":210002}}
