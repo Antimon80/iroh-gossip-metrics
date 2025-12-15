@@ -30,6 +30,8 @@ UC_LABEL_REMAP = {
     "UC8": "UC2",
     "UC9": "UC3",
     "UC10": "UC4",
+    "UC11": "UC7",
+    "UC12": "UC8"
 }
 
 SUMMARY_GLOB = "peer*-summary.json"
