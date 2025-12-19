@@ -55,6 +55,7 @@ echo "== Build project =="
 cargo build --release
 
 echo "== Apply scenario on bridge $BR =="
+export PEERS
 bash "$ROOT/$SCENARIO" "$BR"
 
 #############################################
