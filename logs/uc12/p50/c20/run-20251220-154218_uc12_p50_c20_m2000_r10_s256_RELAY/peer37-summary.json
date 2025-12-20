@@ -1,0 +1,41 @@
+{
+  "received_unique": 2000,
+  "recv_total": 2000,
+  "total_expected": 2000,
+  "delivery_rate": 1.0,
+  "duplicate_rate": 0.0,
+  "duplicates": 0,
+  "out_of_order": 526,
+  "lagged_events": 0,
+  "lat_min": 86,
+  "lat_p50": 628,
+  "lat_p90": 2737,
+  "lat_p99": 16135,
+  "lat_max": 18157,
+  "ldh_min": 1,
+  "ldh_p50": 3,
+  "ldh_p90": 6,
+  "ldh_p99": 8,
+  "ldh_max": 11,
+  "pr_avg_ratio": 1.0,
+  "avg_connected_peers": 2.6820175066582976,
+  "downtime_total_ms": 13757,
+  "downtime_periods": 2,
+  "downtime_p50_ms": 13123,
+  "downtime_p90_ms": 13123,
+  "downtime_max_ms": 13123,
+  "neighbour_down": 20,
+  "neighbour_up": 20,
+  "joined": true,
+  "join_wait_ms": 472,
+  "saw_test": true,
+  "timed_out_no_data": false
+}
+[2m2025-12-20T14:46:23.480591Z[0m [31mERROR[0m [1mgossip[0m[1m{[0m[3mme[0m[2m=[0md4d1903714[1m}[0m[2m:[0m [2miroh_gossip::net[0m[2m:[0m next conn error: JoinError::Cancelled(Id(1121))
+[2m2025-12-20T14:46:23.480615Z[0m [31mERROR[0m [1mgossip[0m[1m{[0m[3mme[0m[2m=[0md4d1903714[1m}[0m[2m:[0m [2miroh_gossip::net[0m[2m:[0m next conn error: JoinError::Cancelled(Id(1043))
+[2m2025-12-20T14:46:23.480635Z[0m [31mERROR[0m [1mgossip[0m[1m{[0m[3mme[0m[2m=[0md4d1903714[1m}[0m[2m:[0m [2miroh_gossip::net[0m[2m:[0m next conn error: JoinError::Cancelled(Id(1133))
+[2m2025-12-20T14:46:23.480640Z[0m [31mERROR[0m [1mgossip[0m[1m{[0m[3mme[0m[2m=[0md4d1903714[1m}[0m[2m:[0m [2miroh_gossip::net[0m[2m:[0m next conn error: JoinError::Cancelled(Id(1095))
+[2m2025-12-20T14:46:23.480645Z[0m [31mERROR[0m [1mgossip[0m[1m{[0m[3mme[0m[2m=[0md4d1903714[1m}[0m[2m:[0m [2miroh_gossip::net[0m[2m:[0m next conn error: JoinError::Cancelled(Id(1108))
+[2m2025-12-20T14:46:23.480650Z[0m [31mERROR[0m [1mgossip[0m[1m{[0m[3mme[0m[2m=[0md4d1903714[1m}[0m[2m:[0m [2miroh_gossip::net[0m[2m:[0m next conn error: JoinError::Cancelled(Id(1186))
+[2m2025-12-20T14:46:23.480655Z[0m [31mERROR[0m [1mgossip[0m[1m{[0m[3mme[0m[2m=[0md4d1903714[1m}[0m[2m:[0m [2miroh_gossip::net[0m[2m:[0m next conn error: JoinError::Cancelled(Id(1198))
+[2m2025-12-20T14:46:23.480659Z[0m [31mERROR[0m [1mgossip[0m[1m{[0m[3mme[0m[2m=[0md4d1903714[1m}[0m[2m:[0m [2miroh_gossip::net[0m[2m:[0m no more pending conns available

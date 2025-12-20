@@ -1,0 +1,7 @@
+uc,sender_fail_rate_percent
+UC6_P10_C10,10.0
+UC6_P10_C20,20.0
+UC6_P10_C30,20.0
+UC6_P50_C10,10.0
+UC6_P50_C20,60.0
+UC6_P50_C30,60.0

@@ -1,0 +1,36 @@
+{
+  "received_unique": 1993,
+  "recv_total": 1993,
+  "total_expected": 2000,
+  "delivery_rate": 0.9965,
+  "duplicate_rate": 0.0,
+  "duplicates": 0,
+  "out_of_order": 379,
+  "lagged_events": 0,
+  "lat_min": 82,
+  "lat_p50": 309,
+  "lat_p90": 1358,
+  "lat_p99": 11988,
+  "lat_max": 14012,
+  "ldh_min": 1,
+  "ldh_p50": 2,
+  "ldh_p90": 4,
+  "ldh_p99": 6,
+  "ldh_max": 8,
+  "pr_avg_ratio": 1.0,
+  "avg_connected_peers": 3.210587918683281,
+  "downtime_total_ms": 1482,
+  "downtime_periods": 2,
+  "downtime_p50_ms": 1003,
+  "downtime_p90_ms": 1003,
+  "downtime_max_ms": 1003,
+  "neighbour_down": 10,
+  "neighbour_up": 12,
+  "joined": true,
+  "join_wait_ms": 1469,
+  "saw_test": true,
+  "timed_out_no_data": false
+}
+[2m2025-12-19T14:26:19.662941Z[0m [31mERROR[0m [1mgossip[0m[1m{[0m[3mme[0m[2m=[0mc0e3c4b97e[1m}[0m[2m:[0m [2miroh_gossip::net[0m[2m:[0m next conn error: JoinError::Cancelled(Id(2492))
+[2m2025-12-19T14:26:19.662988Z[0m [31mERROR[0m [1mgossip[0m[1m{[0m[3mme[0m[2m=[0mc0e3c4b97e[1m}[0m[2m:[0m [2miroh_gossip::net[0m[2m:[0m next conn error: JoinError::Cancelled(Id(2478))
+[2m2025-12-19T14:26:19.663000Z[0m [31mERROR[0m [1mgossip[0m[1m{[0m[3mme[0m[2m=[0mc0e3c4b97e[1m}[0m[2m:[0m [2miroh_gossip::net[0m[2m:[0m next conn error: JoinError::Cancelled(Id(2511))

@@ -107,46 +107,66 @@ def load_runs(base_dir: Path, uc_label: str, churn_pct: int | None = None) -> pd
     """
     Load all peer summary files for all runs under a base directory.
 
-    For each run directory:
-      - determine whether the sender joined successfully,
-      - parse each peer*-summary.json file,
-      - attach metadata: peer id, UC label, run id, sender_joined flag.
+    Supports both layouts:
+      A) <base_dir>/run-*/peer*-summary.json
+      B) <base_dir>/c<CHURN>/run-*/peer*-summary.json
 
-    Returns a DataFrame with one row per (run, peer).
+    If churn_pct is None and layout (B) is used, churn_pct is inferred from
+    the folder name (e.g., c10 -> 10) and written into the rows.
     """
-    rows = []
-    run_dirs = sorted([p for p in base_dir.glob(RUN_GLOB) if p.is_dir()])
+    rows: list[dict] = []
 
-    for run_dir in run_dirs:
+    def _consume_run_dir(run_dir: Path, effective_churn: int | None):
         run_id = run_dir.name
-
-        # Sender join-state (same for all peers of this run)
         sender_ok = sender_joined(run_dir)
 
         files = sorted(run_dir.glob(SUMMARY_GLOB))
         if not files:
-            continue
+            return
 
         for f in files:
             s = load_summary_file(f)
             if s is None:
                 continue
 
-            # Derive a short peer identifier from the file name
             s["peer"] = f.stem.replace("-summary", "")
             s["uc"] = uc_label
             s["run"] = run_id
             s["sender_joined"] = sender_ok
-            if churn_pct is not None:
-                s["churn_pct"] = churn_pct
+
+            if effective_churn is not None:
+                s["churn_pct"] = effective_churn
 
             rows.append(s)
+
+    # --- First try: direct runs under base_dir
+    run_dirs = sorted([p for p in base_dir.glob(RUN_GLOB) if p.is_dir()])
+    if run_dirs:
+        for run_dir in run_dirs:
+            _consume_run_dir(run_dir, churn_pct)
+    else:
+        # --- Fallback: one level deeper under c*/run-*
+        churn_dirs = sorted([p for p in base_dir.glob("c*") if p.is_dir()])
+        for cdir in churn_dirs:
+            # infer churn percentage if not provided
+            inferred = None
+            if churn_pct is None:
+                name = cdir.name
+                if name.startswith("c"):
+                    try:
+                        inferred = int(name[1:])
+                    except ValueError:
+                        inferred = None
+            else:
+                inferred = churn_pct
+
+            for run_dir in sorted([p for p in cdir.glob(RUN_GLOB) if p.is_dir()]):
+                _consume_run_dir(run_dir, inferred)
 
     if not rows:
         raise RuntimeError(f"No usable summary files under {base_dir}")
 
     return pd.DataFrame(rows)
-
 
 # ---------------------------------------------------------------------------
 # Numeric conversion helper
