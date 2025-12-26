@@ -1,5 +1,0 @@
-uc,avg_joined_ratio,std_joined_ratio,min_joined_ratio,max_joined_ratio,avg_saw_test_ratio,std_saw_test_ratio,min_saw_test_ratio,max_saw_test_ratio,runs_with_full_join,runs_with_any_miss,total_runs,valid_runs
-UC7_P10_C30,0.99,0.03162277660168379,0.9,1.0,0.99,0.03162277660168379,0.9,1.0,9,1,10,10
-UC7_P50_C30,0.986,0.009660917830792964,0.98,1.0,0.986,0.009660917830792964,0.98,1.0,3,7,10,10
-UC8_P10_C30,0.8,0.105409255338946,0.7,1.0,0.8,0.105409255338946,0.7,1.0,1,9,10,10
-UC8_P50_C30,0.748,0.08337332373793858,0.6,0.88,0.748,0.08337332373793858,0.6,0.88,0,10,10,10
