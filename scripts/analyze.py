@@ -9,6 +9,7 @@ Post-processing script for iroh-gossip-metrics benchmark summaries.
 Usage examples:
     python scripts/analyze.py --uc uc1 --peers 10 20
     python scripts/analyze.py --uc uc1 uc2 --peers 10
+    python scripts/analyze.py --uc uc5 --peers 10 50 --churns 10 20 30
 
 Output goes to:
     docs/metrics/<combo_name>/
